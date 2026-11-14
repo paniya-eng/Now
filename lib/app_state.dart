@@ -1,0 +1,421 @@
+import 'dart:convert';
+import 'dart:io';
+import 'dart:math' as math;
+import 'package:flutter/foundation.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'data.dart';
+import 'jalali.dart';
+import 'strings.dart';
+
+const kVersion = '0.4.0';
+
+final AppState app = AppState();
+
+class AppState extends ChangeNotifier {
+  SharedPreferences? _p;
+
+  String lang = 'fa';
+  bool h24 = true;
+  bool showSeconds = true;
+  bool systemFont = false;
+  int fontSize = 1; // 0 کوچک، 1 متوسط، 2 بزرگ
+  int accent = 0;
+  int themeMode = 0; // 0 خودکار، 1 روشن، 2 تاریک
+  int silentAfter = 5; // دقیقه؛ ۰ یعنی هرگز
+  int snooze = 10;
+  Set<int> leads = {}; // یادآوری زودتر از موعد (دقیقه)
+  List<String> cities = ['london', 'newyork', 'dubai'];
+  List<Reminder> reminders = [];
+  List<UserOccasion> userOcc = [];
+  List<ReminderCategory> categories = [];
+  String imageDir = '';
+  String soundDir = '';
+  String soundId = 'bell';
+  List<String> customSounds = [];
+  Map<String, int> alerted = {};
+  Map<String, int> snoozedUntil = {};
+
+  int tab = 0;
+  Jalali? calendarFocus;
+
+  Future<void> load() async {
+    try {
+      _p = await SharedPreferences.getInstance();
+      final raw = _p!.getString('data');
+      if (raw != null) {
+        final m = jsonDecode(raw) as Map<String, dynamic>;
+        lang = (m['lang'] as String?) ?? lang;
+        h24 = (m['h24'] as bool?) ?? h24;
+        showSeconds = (m['sec'] as bool?) ?? showSeconds;
+        systemFont = (m['sysfont'] as bool?) ?? systemFont;
+        fontSize = (m['fsize'] as int?) ?? fontSize;
+        accent = (m['accent'] as int?) ?? accent;
+        themeMode = (m['theme'] as int?) ?? themeMode;
+        silentAfter = (m['silent'] as int?) ?? silentAfter;
+        snooze = (m['snooze'] as int?) ?? snooze;
+        leads = ((m['leads'] as List?) ?? []).map((e) => e as int).toSet();
+        cities = ((m['cities'] as List?) ?? cities).map((e) => e as String).toList();
+        reminders = ((m['reminders'] as List?) ?? [])
+            .map((e) => Reminder.fromJson(e as Map<String, dynamic>))
+            .toList();
+        userOcc = ((m['occ'] as List?) ?? [])
+            .map((e) => UserOccasion.fromJson(e as Map<String, dynamic>))
+            .toList();
+        soundId = (m['sound'] as String?) ?? soundId;
+        customSounds = ((m['csounds'] as List?) ?? []).map((e) => e as String).toList();
+        alerted = ((m['alerted'] as Map?) ?? {}).map((k, v) => MapEntry(k as String, v as int));
+        snoozedUntil = ((m['snz'] as Map?) ?? {}).map((k, v) => MapEntry(k as String, v as int));
+        categories = ((m['cats'] as List?) ?? [])
+            .map((e) => ReminderCategory.fromJson(e as Map<String, dynamic>))
+            .toList();
+      }
+    } catch (_) {}
+    try {
+      final d = await getApplicationDocumentsDirectory();
+      imageDir = '${d.path}${Platform.pathSeparator}now_images';
+      await Directory(imageDir).create(recursive: true);
+      soundDir = '${d.path}${Platform.pathSeparator}now_sounds';
+      await Directory(soundDir).create(recursive: true);
+    } catch (_) {}
+    Tr.lang = lang;
+  }
+
+  void _commit() {
+    // دسته‌های حذف‌شده‌ای که دیگر هیچ یادآوری‌ای به آن‌ها اشاره نمی‌کند پاک می‌شوند
+    categories.removeWhere((c) => c.deleted && !reminders.any((r) => r.catId == c.id));
+    alerted.removeWhere((k, _) => !reminders.any((r) => r.id == k.split('#').first));
+    snoozedUntil.removeWhere((k, _) => !reminders.any((r) => r.id == k));
+    _p?.setString(
+      'data',
+      jsonEncode({
+        'lang': lang, 'h24': h24, 'sec': showSeconds, 'sysfont': systemFont,
+        'fsize': fontSize, 'accent': accent, 'theme': themeMode,
+        'silent': silentAfter, 'snooze': snooze, 'leads': leads.toList(), 'cities': cities,
+        'reminders': reminders.map((r) => r.toJson()).toList(),
+        'occ': userOcc.map((o) => o.toJson()).toList(),
+        'cats': categories.map((c) => c.toJson()).toList(),
+        'sound': soundId, 'csounds': customSounds, 'alerted': alerted, 'snz': snoozedUntil,
+      }),
+    );
+    notifyListeners();
+  }
+
+  // ----- تنظیمات -----
+  void setLang(String l) { lang = l; Tr.lang = l; _commit(); }
+  void setH24(bool v) { h24 = v; _commit(); }
+  void setShowSeconds(bool v) { showSeconds = v; _commit(); }
+  void setSystemFont(bool v) { systemFont = v; _commit(); }
+  void setFontSize(int v) { fontSize = v; _commit(); }
+  void setAccent(int v) { accent = v; _commit(); }
+  void setThemeMode(int v) { themeMode = v; _commit(); }
+  void setSilentAfter(int v) { silentAfter = v; _commit(); }
+  void setSnooze(int v) { snooze = v; _commit(); }
+  void toggleLead(int minutes) {
+    leads = leads.contains(minutes) ? (Set<int>.of(leads)..remove(minutes)) : (Set<int>.of(leads)..add(minutes));
+    _commit();
+  }
+
+  // ----- صدای زنگ و هشدار -----
+  String soundPath(String name) => '$soundDir${Platform.pathSeparator}$name';
+  void setSound(String id) { soundId = id; _commit(); }
+
+  Future<String?> addCustomSoundFile(String srcPath, String originalName) async {
+    try {
+      final clean = originalName.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
+      final name = '${DateTime.now().millisecondsSinceEpoch}_$clean';
+      await File(srcPath).copy(soundPath(name));
+      customSounds = [...customSounds, name];
+      _commit();
+      return name;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void removeCustomSound(String name) {
+    customSounds = customSounds.where((e) => e != name).toList();
+    try {
+      final f = File(soundPath(name));
+      if (f.existsSync()) f.deleteSync();
+    } catch (_) {}
+    if (soundId == 'custom:$name') soundId = 'bell';
+    _commit();
+  }
+
+  void markAlerted(String key, int ms) { alerted[key] = ms; _commit(); }
+  void clearSnooze(String id) { snoozedUntil.remove(id); _commit(); }
+  void snoozeReminder(String id) {
+    snoozedUntil[id] = DateTime.now().add(Duration(minutes: snooze)).millisecondsSinceEpoch;
+    _commit();
+  }
+
+  // ----- ناوبری -----
+  void setTab(int i) { tab = i; notifyListeners(); }
+  void openCalendarOn(Jalali j) { calendarFocus = j; tab = 1; notifyListeners(); }
+
+  // ----- شهرها -----
+  void addCity(String id) {
+    if (cities.length < 3 && !cities.contains(id)) {
+      cities = [...cities, id];
+      _commit();
+    }
+  }
+
+  void removeCity(String id) {
+    cities = cities.where((c) => c != id).toList();
+    _commit();
+  }
+
+  // ----- دسته‌بندی‌ها -----
+  static String newId() => DateTime.now().microsecondsSinceEpoch.toString();
+
+  ReminderCategory? catById(String? id) {
+    if (id == null) return null;
+    for (final c in categories) {
+      if (c.id == id) return c;
+    }
+    return null;
+  }
+
+  List<ReminderCategory> get activeCats => categories.where((c) => !c.deleted).toList();
+  int countActive(String catId) => reminders.where((r) => !r.done && r.catId == catId).length;
+  int countArchived(String catId) => reminders.where((r) => r.done && r.catId == catId).length;
+
+  String addCategory(String name, int color) {
+    final c = ReminderCategory(id: newId(), name: name, color: color);
+    categories = [...categories, c];
+    _commit();
+    return c.id;
+  }
+
+  void updateCategory(String id, String name, int color) {
+    final c = catById(id);
+    if (c != null) {
+      c.name = name;
+      c.color = color;
+    }
+    _commit();
+  }
+
+  void deleteCategory(String id) {
+    final c = catById(id);
+    if (c != null) c.deleted = true;
+    for (final r in reminders) {
+      if (r.catId == id && !r.done) r.catId = null;
+    }
+    _commit();
+  }
+
+  // ----- تصاویر -----
+  String imagePath(String name) => '$imageDir${Platform.pathSeparator}$name';
+
+  Future<String?> saveImage(XFile f) async {
+    try {
+      final name = 'img_${newId()}.jpg';
+      await f.saveTo(imagePath(name));
+      return name;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void deleteImageFile(String name) {
+    try {
+      final f = File(imagePath(name));
+      if (f.existsSync()) f.deleteSync();
+    } catch (_) {}
+  }
+
+  /// فایل تصویر فقط وقتی پاک می‌شود که هیچ یادآوری‌ای از آن استفاده نکند
+  void gcImage(String? name) {
+    if (name == null) return;
+    if (reminders.any((r) => r.image == name)) return;
+    deleteImageFile(name);
+  }
+
+  // ----- یادآوری‌ها -----
+  List<Reminder> remindersOn(DateTime day) {
+    final l = reminders.where((r) => !r.done && sameDay(r.time, day)).toList();
+    l.sort((a, b) => a.time.compareTo(b.time));
+    return l;
+  }
+
+  List<Reminder> get archived {
+    final l = reminders.where((r) => r.done).toList();
+    l.sort((a, b) => b.time.compareTo(a.time));
+    return l;
+  }
+
+  void addReminder({
+    required String title,
+    required DateTime time,
+    String note = '',
+    String? catId,
+    String? image,
+    int repeatType = 0,
+    int repeatN = 1,
+  }) {
+    reminders = [
+      ...reminders,
+      Reminder(id: newId(), title: title, time: time, note: note, catId: catId, image: image, repeatType: repeatType, repeatN: repeatN),
+    ];
+    _commit();
+  }
+
+  void updateReminder(
+    String id, {
+    required String title,
+    required DateTime time,
+    String note = '',
+    String? catId,
+    String? image,
+    int repeatType = 0,
+    int repeatN = 1,
+  }) {
+    for (final r in reminders) {
+      if (r.id == id) {
+        r.title = title;
+        r.time = time;
+        r.note = note;
+        r.catId = catId;
+        r.image = image;
+        r.repeatType = repeatType;
+        r.repeatN = repeatN;
+      }
+    }
+    _commit();
+  }
+
+  /// انجام‌شد: یادآوری بایگانی می‌شود. اگر تکرارشونده باشد، نوبت بعدی‌اش ساخته می‌شود.
+  /// تابعی برمی‌گرداند که کار را برمی‌گرداند (Undo).
+  VoidCallback complete(String id) {
+    Reminder? r;
+    for (final e in reminders) {
+      if (e.id == id) r = e;
+    }
+    if (r == null) return () {};
+    final rem = r;
+    if (rem.repeatType == 0) {
+      rem.done = true;
+      _commit();
+      return () => restore(id);
+    }
+    final oldTime = rem.time;
+    final copy = Reminder(
+      id: newId(), title: rem.title, time: oldTime, done: true,
+      note: rem.note, catId: rem.catId, image: rem.image,
+    );
+    rem.time = nextOccurrence(rem, DateTime.now());
+    reminders = [...reminders, copy];
+    _commit();
+    return () {
+      reminders = reminders.where((e) => e.id != copy.id).toList();
+      rem.time = oldTime;
+      _commit();
+    };
+  }
+
+  void restore(String id) {
+    for (final r in reminders) {
+      if (r.id == id) {
+        r.done = false;
+        final c = catById(r.catId);
+        if (c != null && c.deleted) r.catId = null;
+      }
+    }
+    _commit();
+  }
+
+  void deleteReminder(String id) {
+    String? img;
+    for (final r in reminders) {
+      if (r.id == id) img = r.image;
+    }
+    reminders = reminders.where((r) => r.id != id).toList();
+    gcImage(img);
+    _commit();
+  }
+
+  void clearArchive() {
+    final imgs = reminders.where((r) => r.done).map((r) => r.image).toSet();
+    reminders = reminders.where((r) => !r.done).toList();
+    for (final i in imgs) {
+      gcImage(i);
+    }
+    _commit();
+  }
+
+  // ----- مناسبت‌های کاربر -----
+  void addOccasion(String title, Jalali j, bool yearly) {
+    userOcc = [...userOcc, UserOccasion(id: newId(), title: title, y: j.year, m: j.month, d: j.day, yearly: yearly)];
+    _commit();
+  }
+
+  void removeOccasion(String id) {
+    userOcc = userOcc.where((o) => o.id != id).toList();
+    _commit();
+  }
+}
+
+// ---------- تکرار ----------
+DateTime nextOccurrence(Reminder r, DateTime after) {
+  var t = r.time;
+  for (var i = 0; i < 100000; i++) {
+    t = _step(t, r.repeatType, r.repeatN);
+    if (t.isAfter(after)) break;
+  }
+  return t;
+}
+
+DateTime _step(DateTime t, int type, int n) {
+  switch (type) {
+    case 1:
+      return t.add(Duration(hours: n));
+    case 2:
+      return DateTime(t.year, t.month, t.day + n, t.hour, t.minute);
+    case 3:
+      return DateTime(t.year, t.month, t.day + 7 * n, t.hour, t.minute);
+    case 4:
+      {
+        final j = Jalali.fromDateTime(t);
+        final idx = j.year * 12 + (j.month - 1) + n;
+        final y = idx ~/ 12;
+        final m = idx % 12 + 1;
+        final d = math.min(j.day, Jalali.monthLengthOf(y, m));
+        final g = Jalali(y, m, d).toDateTime();
+        return DateTime(g.year, g.month, g.day, t.hour, t.minute);
+      }
+    case 5:
+      {
+        final j = Jalali.fromDateTime(t);
+        final y = j.year + n;
+        final d = math.min(j.day, Jalali.monthLengthOf(y, j.month));
+        final g = Jalali(y, j.month, d).toDateTime();
+        return DateTime(g.year, g.month, g.day, t.hour, t.minute);
+      }
+    default:
+      return t;
+  }
+}
+
+/// همهٔ مناسبت‌های یک روز شمسی (ثابت شمسی + جهانی + مناسبت‌های کاربر)
+List<OccItem> occasionsOn(Jalali j) {
+  final out = <OccItem>[];
+  for (final o in kSolar) {
+    if (o.m == j.month && o.d == j.day) out.add(OccItem(Tr.fa ? o.fa : o.en, o.holiday));
+  }
+  final g = j.toDateTime();
+  for (final o in kGlobal) {
+    if (o.m == g.month && o.d == g.day) out.add(OccItem(Tr.fa ? o.fa : o.en, false));
+  }
+  for (final u in app.userOcc) {
+    if (u.m == j.month && u.d == j.day && (u.yearly || u.y == j.year)) {
+      out.add(OccItem(u.title, false, userId: u.id));
+    }
+  }
+  return out;
+}
+
+bool isHoliday(Jalali j) => j.weekdayIndex == 6 || occasionsOn(j).any((o) => o.holiday);

@@ -1,0 +1,41 @@
+name: now_app
+description: "الآن / Now - Iranian calendar, clock and reminders"
+publish_to: "none"
+version: 0.4.0+5
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_svg: ^2.0.10
+  shared_preferences: ^2.2.0
+  image_picker: ^1.1.2
+  path_provider: ^2.1.4
+  audioplayers: ^6.1.0
+  file_picker: ^8.1.2
+
+dev_dependencies:
+  flutter_launcher_icons: ^0.14.1
+
+flutter_launcher_icons:
+  android: "ic_launcher"
+  ios: false
+  image_path: "assets/icon/icon.png"
+  windows:
+    generate: true
+    image_path: "assets/icon/icon.png"
+    icon_size: 256
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/icon/logo_small.png
+    - assets/sounds/
+  fonts:
+    - family: AppFont
+      fonts:
+        - asset: assets/fonts/app-regular.ttf
+        - asset: assets/fonts/app-bold.ttf
+          weight: 700

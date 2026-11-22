@@ -16,7 +16,7 @@ class HomePage extends StatelessWidget {
     return ListenableBuilder(
       listenable: app,
       builder: (context, _) {
-        final list = app.remindersOn(DateTime.now());
+        final list = app.remindersOn(appNow());
         return Stack(children: [
           ListView(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 110),

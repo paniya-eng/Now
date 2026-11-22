@@ -1,9 +1,10 @@
 import 'dart:async';
-import 'dart:io' show File;
+import 'dart:io' show File, Platform, Process;
 import 'dart:math' as math;
 import 'package:flutter/gestures.dart' show PointerScrollEvent;
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:share_plus/share_plus.dart';
 import 'app_state.dart';
 import 'data.dart';
 import 'fmt.dart';
@@ -89,12 +90,12 @@ class LiveTime extends StatefulWidget {
 
 class _LiveTimeState extends State<LiveTime> {
   Timer? _t;
-  DateTime _now = DateTime.now();
+  DateTime _now = appNow();
   @override
   void initState() {
     super.initState();
     _t = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() => _now = DateTime.now());
+      if (mounted) setState(() => _now = appNow());
     });
   }
 
@@ -514,6 +515,18 @@ class ImageThumb extends StatelessWidget {
       );
 }
 
+Future<void> shareImage(String name) async {
+  final path = app.imagePath(name);
+  try {
+    await Share.shareXFiles([XFile(path)]);
+  } catch (_) {
+    // اگر اشتراک‌گذاری در این سیستم پشتیبانی نشد، فایل را در پوشه‌اش نشان بده
+    try {
+      if (Platform.isWindows) await Process.run('explorer.exe', ['/select,', path]);
+    } catch (_) {}
+  }
+}
+
 void showImageViewer(BuildContext context, String name) {
   showDialog<void>(
     context: context,
@@ -526,6 +539,16 @@ void showImageViewer(BuildContext context, String name) {
           top: 4,
           left: 4,
           child: IconButton(onPressed: () => Navigator.pop(ctx), icon: const AppIcon('x', color: Colors.white)),
+        ),
+        Positioned(
+          top: 4,
+          right: 4,
+          child: IconButton.filled(
+            tooltip: tr('share'),
+            style: IconButton.styleFrom(backgroundColor: Colors.white24),
+            onPressed: () => shareImage(name),
+            icon: const AppIcon('share-2', color: Colors.white, size: 22),
+          ),
         ),
       ]),
     ),

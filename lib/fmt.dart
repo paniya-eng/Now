@@ -25,8 +25,8 @@ String gFull(DateTime g) => '${nd(g.day)} ${Tr.gMonth(g.month)} ${nd(g.year)}';
 String jShort(Jalali j) => '${nd(j.day)} ${j.monthName}';
 
 String repeatUnit(int type, int n) {
-  const fa = ['ساعت', 'روز', 'هفته', 'ماه', 'سال'];
-  const en = ['hour', 'day', 'week', 'month', 'year'];
+  const fa = ['ساعت', 'روز', 'هفته', 'ماه', 'سال', 'دقیقه'];
+  const en = ['hour', 'day', 'week', 'month', 'year', 'minute'];
   final i = type - 1;
   return Tr.fa ? fa[i] : (n == 1 ? en[i] : '${en[i]}s');
 }

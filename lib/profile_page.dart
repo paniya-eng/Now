@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'dart:io' show Platform;
 import 'package:file_picker/file_picker.dart';
 import 'alarm.dart';
 import 'app_state.dart';
 import 'category_page.dart';
+import 'desktop.dart';
+import 'sync_panel.dart';
 import 'fmt.dart';
 import 'data.dart';
 import 'strings.dart';
@@ -72,6 +75,16 @@ class ProfilePage extends StatelessWidget {
     } catch (_) {}
   }
 
+  Future<void> _setClock(BuildContext context) async {
+    final t = await pickTime(context, TimeOfDay.fromDateTime(appNow()));
+    if (t == null) return;
+    final real = DateTime.now();
+    var diff = (t.hour * 60 + t.minute) - (real.hour * 60 + real.minute);
+    if (diff > 720) diff -= 1440;
+    if (diff < -720) diff += 1440;
+    app.setClockOffset(diff);
+  }
+
   Widget _label(String s) => Padding(
         padding: const EdgeInsets.only(top: 12, bottom: 8),
         child: Text(s, style: const TextStyle(fontWeight: FontWeight.w600)),
@@ -88,10 +101,7 @@ class ProfilePage extends StatelessWidget {
             PageTitle(tr('profile')),
             AppCard(
               child: Row(children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(18),
-                  child: Image.asset('assets/icon/logo_small.png', width: 64, height: 64),
-                ),
+                Image.asset('assets/icon/logo_small.png', width: 84, height: 84),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -181,6 +191,57 @@ class ProfilePage extends StatelessWidget {
               const SizedBox(height: 12),
               Text(tr('reminder_note'), style: TextStyle(fontSize: 12, color: context.sub)),
             ]),
+            _group(context, tr('sync_title'), const [SyncPanel()]),
+            _group(context, tr('clock_title'), [
+              LiveTime(
+                builder: (context, now) => Center(
+                  child: Ltr(child: Text(fmtTime(now), style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w500))),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(children: [
+                Expanded(
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(backgroundColor: context.accent),
+                    onPressed: () => _setClock(context),
+                    child: Text(tr('clock_set')),
+                  ),
+                ),
+                if (app.clockOffsetMin != 0) ...[
+                  const SizedBox(width: 8),
+                  OutlinedButton(onPressed: () => app.setClockOffset(0), child: Text(tr('clock_reset'))),
+                ],
+              ]),
+              const SizedBox(height: 8),
+              Text(tr('clock_note'), style: TextStyle(fontSize: 12, color: context.sub)),
+            ]),
+            if (Platform.isWindows)
+              _group(context, tr('desktop_group'), [
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(tr('close_tray')),
+                  value: app.closeToTray,
+                  onChanged: app.setCloseToTray,
+                ),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(tr('run_startup')),
+                  value: app.autoStart,
+                  onChanged: (v) {
+                    app.setAutoStart(v);
+                    Desktop.instance.applyStartup();
+                  },
+                ),
+                OutlinedButton.icon(
+                  onPressed: () => Desktop.instance.enterWidget(),
+                  icon: AppIcon('clock', size: 18, color: context.accent),
+                  label: Text(tr('widget_mode')),
+                ),
+              ]),
+            if (Platform.isAndroid)
+              _group(context, tr('bg_title'), [
+                Text(tr('bg_note'), style: TextStyle(fontSize: 13, color: context.sub)),
+              ]),
             _group(context, tr('alarm_sound'), [
               for (final id in const ['bell', 'chime', 'beep', 'melody']) _soundRow(context, id, tr('sound_$id')),
               for (final n in app.customSounds)

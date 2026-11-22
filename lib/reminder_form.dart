@@ -56,7 +56,7 @@ class _ReminderFormState extends State<_ReminderForm> {
       _img = e.image;
     } else {
       _d = widget.date ?? Jalali.now();
-      final n = DateTime.now().add(const Duration(hours: 1));
+      final n = appNow().add(const Duration(hours: 1));
       _t = TimeOfDay(hour: n.hour, minute: 0);
       _cat = widget.catId;
     }
@@ -310,7 +310,7 @@ class _RepeatDialogState extends State<_RepeatDialog> {
             Text(tr('repeat'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
             OptionChips<int>(
-              options: [(0, tr('rep_none')), for (var i = 1; i <= 5; i++) (i, repeatText(i, 1))],
+              options: [(0, tr('rep_none')), for (final i in const [6, 1, 2, 3, 4, 5]) (i, repeatText(i, 1))],
               value: _t,
               onSelected: (v) => setState(() => _t = v),
             ),
@@ -319,7 +319,7 @@ class _RepeatDialogState extends State<_RepeatDialog> {
               Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                 Text(tr('every'), style: const TextStyle(fontSize: 18)),
                 const SizedBox(width: 12),
-                Ltr(child: NumberSpinner(min: 1, max: 99, value: _n, wrap: false, pad: 1, onChanged: (v) => setState(() => _n = v))),
+                Ltr(child: NumberSpinner(min: 1, max: _t == 6 ? 999 : 99, value: _n, wrap: false, pad: 1, onChanged: (v) => setState(() => _n = v))),
                 const SizedBox(width: 12),
                 Text(repeatUnit(_t, _n), style: const TextStyle(fontSize: 18)),
               ]),

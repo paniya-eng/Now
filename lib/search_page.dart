@@ -90,7 +90,7 @@ class _SearchPageState extends State<SearchPage> {
     }
     for (final o in kGlobal) {
       if (_norm(o.fa).contains(q) || _norm(o.en).contains(q)) {
-        final g = DateTime(DateTime.now().year, o.m, o.d);
+        final g = DateTime(appNow().year, o.m, o.d);
         built.add(_Hit(Tr.fa ? o.fa : o.en, gFull(g), Jalali.fromDateTime(g), false));
       }
     }

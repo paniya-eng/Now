@@ -19,6 +19,8 @@ class Reminder {
     this.image,
     this.repeatType = 0,
     this.repeatN = 1,
+    this.updatedAt = 0,
+    this.deleted = false,
   });
   final String id;
   String title;
@@ -27,12 +29,15 @@ class Reminder {
   String note;
   String? catId;
   String? image;
-  int repeatType; // 0 ندارد، 1 ساعت، 2 روز، 3 هفته، 4 ماه (شمسی)، 5 سال (شمسی)
+  int repeatType; // 0 ندارد، 1 ساعت، 2 روز، 3 هفته، 4 ماه (شمسی)، 5 سال (شمسی)، 6 دقیقه
   int repeatN;
+  int updatedAt;
+  bool deleted;
 
   Map<String, dynamic> toJson() => {
         'id': id, 'title': title, 't': time.millisecondsSinceEpoch, 'done': done,
         'note': note, 'cat': catId, 'img': image, 'rt': repeatType, 'rn': repeatN,
+        'u': updatedAt, 'del': deleted,
       };
   factory Reminder.fromJson(Map<String, dynamic> m) => Reminder(
         id: m['id'] as String,
@@ -44,22 +49,26 @@ class Reminder {
         image: m['img'] as String?,
         repeatType: (m['rt'] as int?) ?? 0,
         repeatN: (m['rn'] as int?) ?? 1,
+        updatedAt: (m['u'] as int?) ?? 0,
+        deleted: (m['del'] as bool?) ?? false,
       );
 }
 
 class ReminderCategory {
-  ReminderCategory({required this.id, required this.name, required this.color, this.deleted = false});
+  ReminderCategory({required this.id, required this.name, required this.color, this.deleted = false, this.updatedAt = 0});
   final String id;
   String name;
   int color;
   bool deleted;
+  int updatedAt;
 
-  Map<String, dynamic> toJson() => {'id': id, 'name': name, 'color': color, 'deleted': deleted};
+  Map<String, dynamic> toJson() => {'id': id, 'name': name, 'color': color, 'deleted': deleted, 'u': updatedAt};
   factory ReminderCategory.fromJson(Map<String, dynamic> m) => ReminderCategory(
         id: m['id'] as String,
         name: m['name'] as String,
         color: m['color'] as int,
         deleted: (m['deleted'] as bool?) ?? false,
+        updatedAt: (m['u'] as int?) ?? 0,
       );
 }
 
@@ -69,13 +78,15 @@ const kCatColors = <int>[
 ];
 
 class UserOccasion {
-  UserOccasion({required this.id, required this.title, required this.y, required this.m, required this.d, this.yearly = true});
+  UserOccasion({required this.id, required this.title, required this.y, required this.m, required this.d, this.yearly = true, this.updatedAt = 0, this.deleted = false});
   final String id;
   final String title;
   final int y, m, d;
   final bool yearly;
+  int updatedAt;
+  bool deleted;
 
-  Map<String, dynamic> toJson() => {'id': id, 'title': title, 'y': y, 'm': m, 'd': d, 'yearly': yearly};
+  Map<String, dynamic> toJson() => {'id': id, 'title': title, 'y': y, 'm': m, 'd': d, 'yearly': yearly, 'u': updatedAt, 'del': deleted};
   factory UserOccasion.fromJson(Map<String, dynamic> j) => UserOccasion(
         id: j['id'] as String,
         title: j['title'] as String,
@@ -83,6 +94,8 @@ class UserOccasion {
         m: j['m'] as int,
         d: j['d'] as int,
         yearly: (j['yearly'] as bool?) ?? true,
+        updatedAt: (j['u'] as int?) ?? 0,
+        deleted: (j['del'] as bool?) ?? false,
       );
 }
 

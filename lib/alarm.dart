@@ -3,6 +3,8 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'app_state.dart';
 import 'data.dart';
+import 'desktop.dart';
+import 'notifier.dart';
 import 'fmt.dart';
 import 'jalali.dart';
 import 'strings.dart';
@@ -48,7 +50,7 @@ class AlarmService {
 
   void _tick() {
     if (_showing || navKey.currentContext == null) return;
-    final now = DateTime.now();
+    final now = appNow();
     final nowMs = now.millisecondsSinceEpoch;
 
     for (final e in app.snoozedUntil.entries.toList()) {
@@ -94,9 +96,15 @@ class AlarmService {
   }
 
   Future<void> _fire(Reminder r, int lead) async {
-    final ctx = navKey.currentContext;
-    if (ctx == null) return;
+    if (navKey.currentContext == null) return;
     _showing = true;
+    Notifier.dismiss(r);
+    if (Desktop.supported) await Desktop.instance.showMain();
+    final ctx = navKey.currentContext;
+    if (ctx == null) {
+      _showing = false;
+      return;
+    }
     AlarmSound.play(loop: true);
     Timer? silence;
     if (app.silentAfter > 0) {

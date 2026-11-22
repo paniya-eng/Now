@@ -7,7 +7,10 @@ class Jalali {
   final int day;
   const Jalali(this.year, this.month, this.day);
 
-  factory Jalali.now() => Jalali.fromDateTime(DateTime.now());
+  /// ساعت مرجع برنامه (می‌تواند با «ساعت برنامه» جابه‌جا شود)
+  static DateTime Function() clock = DateTime.now;
+
+  factory Jalali.now() => Jalali.fromDateTime(clock());
 
   factory Jalali.fromDateTime(DateTime d) {
     const gdm = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];

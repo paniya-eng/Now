@@ -5,6 +5,10 @@ import 'app_state.dart';
 import 'data.dart';
 import 'calendar_page.dart';
 import 'clock_page.dart';
+import 'desktop.dart';
+import 'notifier.dart';
+import 'sync_service.dart';
+import 'widget_view.dart';
 import 'home_page.dart';
 import 'profile_page.dart';
 import 'search_page.dart';
@@ -14,6 +18,9 @@ import 'ui.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await app.load();
+  await Desktop.instance.init();
+  Notifier.init();
+  SyncService.instance.start();
   AlarmService.instance.start();
   runApp(const NowApp());
 }
@@ -56,7 +63,10 @@ class NowApp extends StatelessWidget {
             child: child!,
           ),
         ),
-        home: const Shell(),
+        home: ValueListenableBuilder<bool>(
+          valueListenable: Desktop.instance.widgetMode,
+          builder: (_, w, __) => w ? const DesktopWidget() : const Shell(),
+        ),
       ),
     );
   }

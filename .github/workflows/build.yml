@@ -21,28 +21,7 @@ jobs:
         run: |
           flutter create --platforms=android,windows --org com.now --project-name now_app .
           rm -rf test
-          sed -i 's/android:label="[^"]*"/android:label="الآن"/' android/app/src/main/AndroidManifest.xml
-          python3 - <<'PY'
-          import os
-          for f in ('android/app/build.gradle.kts', 'android/app/build.gradle'):
-              if os.path.exists(f):
-                  s = open(f, encoding='utf-8').read()
-                  if f.endswith('.kts'):
-                      block = "android {\n    lint {\n        checkReleaseBuilds = false\n        abortOnError = false\n    }\n"
-                  else:
-                      block = "android {\n    lint {\n        checkReleaseBuilds false\n        abortOnError false\n    }\n"
-                  s = s.replace("android {\n", block, 1)
-                  open(f, 'w', encoding='utf-8').write(s)
-                  print('patched', f)
-          # همهٔ پلاگین‌ها را با compileSdk 36 کامپایل کن (لازمهٔ flutter_plugin_android_lifecycle)
-          kts = 'subprojects {\n    afterEvaluate {\n        extensions.findByName("android")?.let { ext ->\n            ext.withGroovyBuilder { "compileSdkVersion"(36) }\n        }\n    }\n}\n\n'
-          groovy = 'subprojects {\n    afterEvaluate { project ->\n        if (project.hasProperty("android")) {\n            project.android.compileSdkVersion 36\n        }\n    }\n}\n\n'
-          for f, block in (('android/build.gradle.kts', kts), ('android/build.gradle', groovy)):
-              if os.path.exists(f):
-                  s = open(f, encoding='utf-8').read()
-                  open(f, 'w', encoding='utf-8').write(block + s)
-                  print('patched root', f)
-          PY
+          python3 ci/patch_android.py
       - run: flutter pub get
       - name: App icon
         run: dart run flutter_launcher_icons

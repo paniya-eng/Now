@@ -1,139 +1,17 @@
-import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
-import 'package:launch_at_startup/launch_at_startup.dart';
-import 'package:tray_manager/tray_manager.dart';
-import 'package:window_manager/window_manager.dart';
-import 'app_state.dart';
-import 'strings.dart';
 
-/// ویندوز: ماندن در کنار ساعت (Tray) برای زنگ در پس‌زمینه، اجرا با روشن شدن ویندوز، و حالت ویجت
-class Desktop with WindowListener, TrayListener {
+/// نسخهٔ سبک: Tray و ویجت ویندوز موقتاً غیرفعال است (کد کامل در windows_desktop/ نگه‌داری شده).
+class Desktop {
   Desktop._();
   static final Desktop instance = Desktop._();
 
-  static bool get supported => Platform.isWindows;
+  static bool get supported => false;
   final ValueNotifier<bool> widgetMode = ValueNotifier<bool>(false);
 
-  Future<void> init() async {
-    if (!supported) return;
-    try {
-      await windowManager.ensureInitialized();
-      const opts = WindowOptions(size: Size(360, 780), minimumSize: Size(300, 480), title: 'Now');
-      await windowManager.waitUntilReadyToShow(opts, () async {
-        await windowManager.show();
-        await windowManager.focus();
-      });
-      await windowManager.setPreventClose(true);
-      windowManager.addListener(this);
-    } catch (_) {}
-    try {
-      await trayManager.setIcon('assets/icon/tray.ico');
-      await _buildMenu();
-      trayManager.addListener(this);
-      app.addListener(_menuRefresh);
-    } catch (_) {}
-    await applyStartup();
-  }
-
-  String _lastLang = '';
-  void _menuRefresh() {
-    if (_lastLang != Tr.lang) _buildMenu();
-  }
-
-  Future<void> _buildMenu() async {
-    _lastLang = Tr.lang;
-    await trayManager.setContextMenu(Menu(items: [
-      MenuItem(key: 'show', label: tr('tray_show')),
-      MenuItem(key: 'widget', label: tr('tray_widget')),
-      MenuItem.separator(),
-      MenuItem(key: 'quit', label: tr('tray_quit')),
-    ]));
-  }
-
-  Future<void> applyStartup() async {
-    if (!supported) return;
-    try {
-      launchAtStartup.setup(appName: 'Now', appPath: Platform.resolvedExecutable);
-      if (app.autoStart) {
-        await launchAtStartup.enable();
-      } else {
-        await launchAtStartup.disable();
-      }
-    } catch (_) {}
-  }
-
-  Future<void> showMain() async {
-    if (!supported) return;
-    try {
-      if (widgetMode.value) await exitWidget();
-      await windowManager.show();
-      await windowManager.focus();
-    } catch (_) {}
-  }
-
-  Future<void> enterWidget() async {
-    if (!supported) return;
-    try {
-      widgetMode.value = true;
-      await windowManager.setTitleBarStyle(TitleBarStyle.hidden, windowButtonVisibility: false);
-      await windowManager.setMinimumSize(const Size(200, 100));
-      await windowManager.setSize(const Size(340, 150));
-      await windowManager.setAlwaysOnTop(true);
-      await windowManager.show();
-    } catch (_) {}
-  }
-
-  Future<void> exitWidget() async {
-    if (!supported) return;
-    try {
-      widgetMode.value = false;
-      await windowManager.setAlwaysOnTop(false);
-      await windowManager.setTitleBarStyle(TitleBarStyle.normal);
-      await windowManager.setMinimumSize(const Size(300, 480));
-      await windowManager.setSize(const Size(360, 780));
-      await windowManager.center();
-    } catch (_) {}
-  }
-
-  Future<void> quit() async {
-    try {
-      await trayManager.destroy();
-    } catch (_) {}
-    try {
-      await windowManager.setPreventClose(false);
-      await windowManager.destroy();
-    } catch (_) {
-      exit(0);
-    }
-  }
-
-  @override
-  void onWindowClose() {
-    if (app.closeToTray && !widgetMode.value) {
-      windowManager.hide();
-    } else if (widgetMode.value) {
-      exitWidget();
-    } else {
-      quit();
-    }
-  }
-
-  @override
-  void onTrayIconMouseDown() => showMain();
-
-  @override
-  void onTrayIconRightMouseDown() => trayManager.popUpContextMenu();
-
-  @override
-  void onTrayMenuItemClick(MenuItem menuItem) {
-    switch (menuItem.key) {
-      case 'show':
-        showMain();
-      case 'widget':
-        enterWidget();
-      case 'quit':
-        quit();
-    }
-  }
+  Future<void> init() async {}
+  Future<void> showMain() async {}
+  Future<void> enterWidget() async {}
+  Future<void> exitWidget() async {}
+  Future<void> applyStartup() async {}
+  Future<void> quit() async {}
 }

@@ -215,7 +215,7 @@ class ProfilePage extends StatelessWidget {
               const SizedBox(height: 8),
               Text(tr('clock_note'), style: TextStyle(fontSize: 12, color: context.sub)),
             ]),
-            if (Platform.isWindows)
+            if (Desktop.supported && Platform.isWindows)
               _group(context, tr('desktop_group'), [
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,

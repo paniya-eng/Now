@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:window_manager/window_manager.dart';
 import 'app_state.dart';
 import 'desktop.dart';
 import 'fmt.dart';
@@ -16,8 +15,8 @@ class DesktopWidget extends StatelessWidget {
     final accent = context.accent;
     return Scaffold(
       backgroundColor: const Color(0xFF1B1D29),
-      body: DragToMoveArea(
-        child: Padding(
+      body: Builder(
+        builder: (context) => Padding(
           padding: const EdgeInsets.all(10),
           child: LiveTime(builder: (context, now) {
             final j = Jalali.fromDateTime(now);

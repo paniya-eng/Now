@@ -45,6 +45,9 @@ jobs:
           rm -rf test
           sed -i 's/L"now_app"/L"Now"/' windows/runner/main.cpp
           sed -i 's/size(1280, *720)/size(360, 780)/' windows/runner/main.cpp
+          # اعلان سیستم فقط برای اندروید است؛ افزونه‌اش را از ساخت ویندوز حذف می‌کنیم
+          cp windows_desktop/notifier_stub.dart.txt lib/notifier.dart
+          flutter pub remove flutter_local_notifications timezone
       - run: flutter pub get
       - name: App icon
         run: dart run flutter_launcher_icons
@@ -75,6 +78,8 @@ jobs:
           rm -rf test
           sed -i 's/L"now_app"/L"Now"/' windows/runner/main.cpp
           sed -i 's/size(1280, *720)/size(360, 780)/' windows/runner/main.cpp
+          cp windows_desktop/notifier_stub.dart.txt lib/notifier.dart
+          flutter pub remove flutter_local_notifications timezone
           cp windows_desktop/desktop_full.dart.txt lib/desktop.dart
           cp windows_desktop/widget_view_full.dart.txt lib/widget_view.dart
           flutter pub add window_manager tray_manager launch_at_startup

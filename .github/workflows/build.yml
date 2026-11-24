@@ -58,3 +58,44 @@ jobs:
         with:
           name: Now-Windows
           path: Now-Windows.zip
+
+  windows-full:
+    # نسخهٔ آزمایشی ویندوز با Tray و ویجت دسکتاپ؛ اگر خطا بدهد بقیهٔ ساخت‌ها بی‌تأثیر می‌مانند
+    runs-on: windows-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: Prepare full desktop build
+        shell: bash
+        run: |
+          flutter create --platforms=android,windows --org com.now --project-name now_app .
+          rm -rf test
+          sed -i 's/L"now_app"/L"Now"/' windows/runner/main.cpp
+          sed -i 's/size(1280, *720)/size(360, 780)/' windows/runner/main.cpp
+          cp windows_desktop/desktop_full.dart.txt lib/desktop.dart
+          cp windows_desktop/widget_view_full.dart.txt lib/widget_view.dart
+          flutter pub add window_manager tray_manager launch_at_startup
+          python3 - <<'PY'
+          s = open('pubspec.yaml', encoding='utf-8').read()
+          s = s.replace("    - assets/sounds/\n", "    - assets/sounds/\n    - assets/icon/tray.ico\n", 1)
+          open('pubspec.yaml', 'w', encoding='utf-8').write(s)
+          PY
+          flutter pub get
+          dart run flutter_launcher_icons
+          echo "---- package versions ----"
+          flutter pub deps --style=compact | grep -E "window_manager|tray_manager|launch_at_startup|menu_base|screen_retriever" || true
+          echo "---- analyzer ----"
+          flutter analyze lib/desktop.dart lib/widget_view.dart || true
+      - run: flutter build windows --release
+      - name: Zip
+        shell: pwsh
+        run: |
+          $dir = (Get-ChildItem -Path build\windows -Recurse -Filter now_app.exe | Select-Object -First 1).DirectoryName
+          Compress-Archive -Path "$dir\*" -DestinationPath Now-Windows-Full.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Now-Windows-Full
+          path: Now-Windows-Full.zip

@@ -76,6 +76,7 @@ class Tr {
     'bg_title': 'زنگ وقتی گوشی قفل است',
     'bg_note': 'برای اینکه زنگ در حالت قفل و بسته بودن برنامه هم بخورد: دسترسی «اعلان‌ها» و «آلارم و یادآور دقیق» را به برنامه بده و باتری برنامه را روی «بدون محدودیت» بگذار. اگر صدای دلخواه انتخاب کرده باشی، در حالت قفل صدای «زنگ» پخش می‌شود.',
     'share': 'اشتراک‌گذاری',
+    'test_alarm': 'اعلان آزمایشی (۱۰ ثانیه دیگر)', 'test_alarm_sent': 'اعلان آزمایشی برنامه‌ریزی شد؛ ۱۰ ثانیه دیگر ببین. می‌توانی برنامه را ببندی و گوشی را قفل کنی.',
     'select_date': 'انتخاب تاریخ', 'select_time': 'انتخاب ساعت', 'empty_title': 'عنوان را وارد کن',
   };
 
@@ -126,6 +127,7 @@ class Tr {
     'bg_title': 'Alarm when the phone is locked',
     'bg_note': 'To ring while the phone is locked or the app is closed: allow Notifications and Alarms & reminders for the app, and set its battery usage to Unrestricted. If you picked a custom sound, the built-in Bell plays while locked.',
     'share': 'Share',
+    'test_alarm': 'Test alarm (in 10 seconds)', 'test_alarm_sent': 'Test alarm scheduled; watch in 10 seconds. You can close the app and lock the phone.',
     'select_date': 'Select date', 'select_time': 'Select time', 'empty_title': 'Enter a title',
   };
 }

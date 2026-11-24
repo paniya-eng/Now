@@ -9,7 +9,7 @@ import 'data.dart';
 import 'jalali.dart';
 import 'strings.dart';
 
-const kVersion = '0.5.1';
+const kVersion = '0.5.3';
 
 final AppState app = AppState();
 

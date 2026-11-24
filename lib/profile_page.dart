@@ -5,6 +5,7 @@ import 'alarm.dart';
 import 'app_state.dart';
 import 'category_page.dart';
 import 'desktop.dart';
+import 'notifier.dart';
 import 'sync_panel.dart';
 import 'fmt.dart';
 import 'data.dart';
@@ -241,6 +242,25 @@ class ProfilePage extends StatelessWidget {
             if (Platform.isAndroid)
               _group(context, tr('bg_title'), [
                 Text(tr('bg_note'), style: TextStyle(fontSize: 13, color: context.sub)),
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    final err = await Notifier.test();
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err.isEmpty ? tr('test_alarm_sent') : '${tr('sync_err_other')}: $err')));
+                  },
+                  icon: AppIcon('bell', size: 18, color: context.accent),
+                  label: Text(tr('test_alarm')),
+                ),
+                ValueListenableBuilder<String>(
+                  valueListenable: Notifier.status,
+                  builder: (_, v, __) => v.isEmpty
+                      ? const SizedBox()
+                      : Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text('${tr('sync_err_other')}: $v', style: TextStyle(fontSize: 11, color: Colors.red.shade400)),
+                        ),
+                ),
               ]),
             _group(context, tr('alarm_sound'), [
               for (final id in const ['bell', 'chime', 'beep', 'melody']) _soundRow(context, id, tr('sound_$id')),

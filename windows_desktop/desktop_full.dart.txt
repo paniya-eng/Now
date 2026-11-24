@@ -15,6 +15,10 @@ class Desktop with WindowListener, TrayListener {
   static bool get supported => Platform.isWindows;
   final ValueNotifier<bool> widgetMode = ValueNotifier<bool>(false);
 
+  /// ۰ = مربع‌های سفید، ۱ = شفاف
+  final ValueNotifier<int> widgetStyle = ValueNotifier<int>(0);
+  void toggleWidgetStyle() => widgetStyle.value = widgetStyle.value == 0 ? 1 : 0;
+
   Future<void> init() async {
     if (!supported) return;
     try {
@@ -78,7 +82,8 @@ class Desktop with WindowListener, TrayListener {
       widgetMode.value = true;
       await windowManager.setTitleBarStyle(TitleBarStyle.hidden, windowButtonVisibility: false);
       await windowManager.setMinimumSize(const Size(200, 100));
-      await windowManager.setSize(const Size(340, 150));
+      await windowManager.setSize(const Size(300, 160));
+      await windowManager.setBackgroundColor(Colors.transparent);
       await windowManager.setAlwaysOnTop(true);
       await windowManager.show();
     } catch (_) {}

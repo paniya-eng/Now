@@ -8,16 +8,26 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
+import android.os.Bundle
+import android.util.TypedValue
+import android.view.View
 import android.widget.RemoteViews
 import org.json.JSONObject
 import java.util.Calendar
 
 /** ویجت صفحهٔ اصلی: کارت تاریخ شمسی (چپ) + ساعت (راست) */
-class NowWidgetProvider : AppWidgetProvider() {
+open class NowWidgetProvider : AppWidgetProvider() {
+
+    open val transparent: Boolean get() = false
 
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
-        for (id in ids) manager.updateAppWidget(id, build(context))
+        for (id in ids) manager.updateAppWidget(id, build(context, manager, id, transparent))
         scheduleMidnight(context)
+    }
+
+    override fun onAppWidgetOptionsChanged(context: Context, manager: AppWidgetManager, id: Int, newOptions: Bundle) {
+        super.onAppWidgetOptionsChanged(context, manager, id, newOptions)
+        manager.updateAppWidget(id, build(context, manager, id, transparent))
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -41,9 +51,19 @@ class NowWidgetProvider : AppWidgetProvider() {
 
         fun refreshAll(context: Context) {
             val mgr = AppWidgetManager.getInstance(context)
-            val ids = mgr.getAppWidgetIds(ComponentName(context, NowWidgetProvider::class.java))
-            for (id in ids) mgr.updateAppWidget(id, build(context))
-            if (ids.isNotEmpty()) scheduleMidnight(context)
+            var any = false
+            val kinds = listOf(
+                Pair(NowWidgetProvider::class.java, false),
+                Pair(NowWidgetTransparentProvider::class.java, true)
+            )
+            for ((cls, tr) in kinds) {
+                val ids = mgr.getAppWidgetIds(ComponentName(context, cls))
+                for (id in ids) {
+                    mgr.updateAppWidget(id, build(context, mgr, id, tr))
+                    any = true
+                }
+            }
+            if (any) scheduleMidnight(context)
         }
 
         private fun scheduleMidnight(context: Context) {
@@ -71,7 +91,7 @@ class NowWidgetProvider : AppWidgetProvider() {
             return sb.toString()
         }
 
-        private fun build(context: Context): RemoteViews {
+        private fun build(context: Context, manager: AppWidgetManager, id: Int, transparent: Boolean): RemoteViews {
             // خواندن تنظیمات برنامهٔ فلاتر (زبان، رنگ، ۲۴ ساعته)
             var fa = true
             var accent = 0
@@ -96,14 +116,31 @@ class NowWidgetProvider : AppWidgetProvider() {
             val weekday = (if (fa) DAYS_FA else DAYS_EN)[wd]
             val dayText = if (fa) faDigits(jal[2].toString()) else jal[2].toString()
 
-            val v = RemoteViews(context.packageName, R.layout.now_widget)
+            val layout = if (transparent) R.layout.now_widget_transparent else R.layout.now_widget
+            val v = RemoteViews(context.packageName, layout)
             v.setTextViewText(R.id.wd_month, "$weekday  $month")
             v.setTextViewText(R.id.day, dayText)
-            val color = if (wd == 6) Color.parseColor("#E8564B") else Color.parseColor(ACCENTS[accent.coerceIn(0, ACCENTS.size - 1)])
-            v.setTextColor(R.id.day, color)
+            if (!transparent) {
+                val color = if (wd == 6) Color.parseColor("#E8564B") else Color.parseColor(ACCENTS[accent.coerceIn(0, ACCENTS.size - 1)])
+                v.setTextColor(R.id.day, color)
+            }
+
+            // اندازهٔ متن‌ها را بر اساس اندازهٔ ویجت تنظیم کن تا درشت و متناسب با مربع‌ها باشد
+            val opts = manager.getAppWidgetOptions(id)
+            val wDp = opts.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 250).toFloat()
+            val hDp = opts.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 120).toFloat()
+            val side = minOf((wDp - 12f) / 2f, hDp - 8f).coerceAtLeast(60f)
+            v.setTextViewTextSize(R.id.day, TypedValue.COMPLEX_UNIT_DIP, side * 0.56f)
+            v.setTextViewTextSize(R.id.wd_month, TypedValue.COMPLEX_UNIT_DIP, side * 0.13f)
             val fmt = if (h24) "HH:mm" else "h:mm"
-            v.setCharSequence(R.id.clock, "setFormat24Hour", fmt)
-            v.setCharSequence(R.id.clock, "setFormat12Hour", fmt)
+            // ساعت فارسی: فونت وزیرمتن با ارقام فارسی؛ در حالت انگلیسی فونت با ارقام لاتین
+            for (cid in intArrayOf(R.id.clock, R.id.clock_en)) {
+                v.setTextViewTextSize(cid, TypedValue.COMPLEX_UNIT_DIP, side * 0.31f)
+                v.setCharSequence(cid, "setFormat24Hour", fmt)
+                v.setCharSequence(cid, "setFormat12Hour", fmt)
+            }
+            v.setViewVisibility(R.id.clock, if (fa) View.VISIBLE else View.GONE)
+            v.setViewVisibility(R.id.clock_en, if (fa) View.GONE else View.VISIBLE)
 
             val open = Intent(context, MainActivity::class.java)
             val pi = PendingIntent.getActivity(
@@ -148,4 +185,9 @@ class NowWidgetProvider : AppWidgetProvider() {
             return intArrayOf(jy, jm, jd)
         }
     }
+}
+
+/** ویجت با پس‌زمینهٔ شفاف (متن سفید روی والپیپر) */
+class NowWidgetTransparentProvider : NowWidgetProvider() {
+    override val transparent: Boolean get() = true
 }

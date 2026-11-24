@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
@@ -16,6 +17,9 @@ class Notifier {
   static String _lastSig = '';
   static const _widgetChannel = MethodChannel('now/widget');
 
+  /// آخرین خطای برنامه‌ریزی اعلان (برای نمایش در پروفایل)
+  static final ValueNotifier<String> status = ValueNotifier<String>('');
+
   static bool get supported => Platform.isAndroid;
 
   static Future<void> init() async {
@@ -27,7 +31,9 @@ class Notifier {
       await a?.requestExactAlarmsPermission();
       app.addListener(_schedule);
       _schedule();
-    } catch (_) {}
+    } catch (e) {
+      status.value = 'init: $e';
+    }
   }
 
   static void _schedule() {
@@ -55,6 +61,7 @@ class Notifier {
       _lastSig = sig;
 
       await _fln.cancelAll();
+      status.value = '';
       final off = Duration(minutes: app.clockOffsetMin);
       final nowReal = DateTime.now();
       final leads = app.leads.toList()..sort();
@@ -62,21 +69,27 @@ class Notifier {
         final real = r.time.subtract(off);
         final base = _base(r);
         final body = r.note.isNotEmpty ? r.note : fmtTime(r.time);
-        if (real.isAfter(nowReal)) await _one(base, r.title, body, real);
+        if (real.isAfter(nowReal)) _note(await _one(base, r.title, body, real));
         var i = 0;
         for (final m in leads) {
           i++;
           if (i > 12) break;
           final at = real.subtract(Duration(minutes: m));
           if (at.isAfter(nowReal)) {
-            await _one(base + i, r.title, Tr.fa ? 'تا ${leadLabel(m)} دیگر' : 'In ${leadLabel(m)}', at);
+            _note(await _one(base + i, r.title, Tr.fa ? 'تا ${leadLabel(m)} دیگر' : 'In ${leadLabel(m)}', at));
           }
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      status.value = '$e';
+    }
   }
 
-  static Future<void> _one(int id, String title, String body, DateTime when) async {
+  static void _note(String? err) {
+    if (err != null && status.value.isEmpty) status.value = err;
+  }
+
+  static Future<String?> _one(int id, String title, String body, DateTime when) async {
     final sound = _sound();
     final details = NotificationDetails(
       android: AndroidNotificationDetails(
@@ -98,20 +111,24 @@ class Notifier {
     );
     final at = tz.TZDateTime.fromMillisecondsSinceEpoch(tz.UTC, when.millisecondsSinceEpoch);
     try {
-      await _fln.zonedSchedule(
-        id, title, body, at, details,
-        androidScheduleMode: AndroidScheduleMode.alarmClock,
-        uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
-      );
-    } catch (_) {
+      await _fln.zonedSchedule(id, title, body, at, details, androidScheduleMode: AndroidScheduleMode.alarmClock);
+      return null;
+    } catch (e1) {
       try {
-        await _fln.zonedSchedule(
-          id, title, body, at, details,
-          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-          uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
-        );
-      } catch (_) {}
+        await _fln.zonedSchedule(id, title, body, at, details, androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle);
+        return null;
+      } catch (e2) {
+        return '$e1 | $e2';
+      }
     }
+  }
+
+  /// اعلان آزمایشی ۱۰ ثانیه بعد؛ خطا (اگر باشد) برگردانده می‌شود
+  static Future<String> test() async {
+    if (!supported) return '';
+    final err = await _one(999999, Tr.fa ? 'اعلان آزمایشی الآن' : 'Now test alarm', Tr.fa ? 'اگر این را می‌بینی اعلان‌ها کار می‌کنند' : 'If you see this, alarms work',
+        DateTime.now().add(const Duration(seconds: 10)));
+    return err ?? '';
   }
 
   /// وقتی هشدار داخل برنامه نمایش داده شد، اعلان مربوطه را بردار تا دوبار زنگ نزند

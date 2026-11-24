@@ -7,58 +7,76 @@ import 'jalali.dart';
 import 'strings.dart';
 import 'ui.dart';
 
-/// ویجت دسکتاپ ویندوز: کارت تاریخ شمسی (چپ) + ساعت (راست)، مثل ویجت اندروید
+/// ویجت دسکتاپ ویندوز: دو مربع کنار هم؛ تاریخ شمسی (چپ) و ساعت (راست). دو مدل: سفید و شفاف.
 class DesktopWidget extends StatelessWidget {
   const DesktopWidget({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final accent = context.accent;
-    return Scaffold(
-      backgroundColor: const Color(0xFF1B1D29),
-      body: DragToMoveArea(
-        child: Padding(
-          padding: const EdgeInsets.all(10),
-          child: LiveTime(builder: (context, now) {
-            final j = Jalali.fromDateTime(now);
-            final holiday = isHoliday(j);
-            return Row(children: [
-              Expanded(
-                flex: 5,
-                child: Container(
-                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(22)),
-                  child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    Text('${j.weekdayName}  ${j.monthName}', style: const TextStyle(color: Colors.black54, fontSize: 13)),
-                    Text(nd(j.day),
-                        style: TextStyle(fontSize: 54, height: 1.05, fontWeight: FontWeight.bold, color: holiday ? Colors.red.shade400 : accent)),
-                  ]),
+    return ValueListenableBuilder<int>(
+      valueListenable: Desktop.instance.widgetStyle,
+      builder: (context, style, _) {
+        final white = style == 0;
+        final accent = context.accent;
+        final shadow = white ? const <Shadow>[] : const [Shadow(color: Colors.black87, blurRadius: 8, offset: Offset(0, 2))];
+        Widget square(Widget child) => Expanded(
+              child: Center(
+                child: AspectRatio(
+                  aspectRatio: 1,
+                  child: Container(
+                    decoration: white ? BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(26)) : null,
+                    padding: const EdgeInsets.all(10),
+                    child: FittedBox(child: child),
+                  ),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                flex: 6,
-                child: Stack(children: [
-                  Center(
-                    child: Column(mainAxisSize: MainAxisSize.min, children: [
-                      Ltr(child: Text(fmtHM(now), style: const TextStyle(color: Colors.white, fontSize: 44, fontWeight: FontWeight.w500))),
-                      Text(gFull(now), style: const TextStyle(color: Colors.white60, fontSize: 12)),
-                    ]),
+            );
+        return Scaffold(
+          backgroundColor: Colors.transparent,
+          body: DragToMoveArea(
+            child: Stack(children: [
+              Padding(
+                padding: const EdgeInsets.all(6),
+                child: LiveTime(builder: (context, now) {
+                  final j = Jalali.fromDateTime(now);
+                  final holiday = isHoliday(j);
+                  final dayColor = white ? (holiday ? Colors.red.shade400 : accent) : Colors.white;
+                  return Row(children: [
+                    square(Column(mainAxisSize: MainAxisSize.min, children: [
+                      Text('${j.weekdayName}  ${j.monthName}',
+                          style: TextStyle(color: white ? Colors.black54 : Colors.white, fontSize: 14, fontWeight: FontWeight.bold, shadows: shadow)),
+                      Text(nd(j.day), style: TextStyle(fontSize: 72, height: 1.0, fontWeight: FontWeight.bold, color: dayColor, shadows: shadow)),
+                    ])),
+                    const SizedBox(width: 8),
+                    square(Ltr(
+                      child: Text(fmtHM(now),
+                          style: TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: white ? const Color(0xFF111111) : Colors.white, shadows: shadow)),
+                    )),
+                  ]);
+                }),
+              ),
+              Positioned(
+                top: 0,
+                right: 0,
+                child: Row(children: [
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    tooltip: 'سفید / شفاف',
+                    onPressed: () => Desktop.instance.toggleWidgetStyle(),
+                    icon: const Icon(Icons.contrast, size: 16, color: Colors.grey),
                   ),
-                  Positioned(
-                    top: -6,
-                    right: -6,
-                    child: IconButton(
-                      tooltip: tr('widget_back'),
-                      onPressed: () => Desktop.instance.exitWidget(),
-                      icon: const Icon(Icons.open_in_full, size: 16, color: Colors.white54),
-                    ),
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    tooltip: tr('widget_back'),
+                    onPressed: () => Desktop.instance.exitWidget(),
+                    icon: const Icon(Icons.open_in_full, size: 16, color: Colors.grey),
                   ),
                 ]),
               ),
-            ]);
-          }),
-        ),
-      ),
+            ]),
+          ),
+        );
+      },
     );
   }
 }

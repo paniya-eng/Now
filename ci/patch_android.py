@@ -37,7 +37,7 @@ receivers = '''
                 <action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/>
             </intent-filter>
         </receiver>
-        <receiver android:name=".NowWidgetProvider" android:exported="true">
+        <receiver android:name=".NowWidgetProvider" android:label="الآن (سفید)" android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
                 <action android:name="android.intent.action.DATE_CHANGED"/>
@@ -46,6 +46,12 @@ receivers = '''
                 <action android:name="com.now.now_app.MIDNIGHT"/>
             </intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/now_widget_info"/>
+        </receiver>
+        <receiver android:name=".NowWidgetTransparentProvider" android:label="الآن (شفاف)" android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/now_widget_info_transparent"/>
         </receiver>
 '''
 m = m.replace('</application>', receivers + '    </application>', 1)
@@ -85,4 +91,8 @@ shutil.copytree('android_overlay', 'android/app/src/main', dirs_exist_ok=True)
 os.makedirs('android/app/src/main/res/raw', exist_ok=True)
 for w in glob.glob('assets/sounds/*.wav'):
     shutil.copy(w, 'android/app/src/main/res/raw/' + os.path.basename(w).lower())
-print('overlay + sounds copied')
+# فونت درشت (وزیرمتن / فونت برنامه) برای ویجت
+os.makedirs('android/app/src/main/res/font', exist_ok=True)
+shutil.copy('assets/fonts/app-bold.ttf', 'android/app/src/main/res/font/app_font_bold.ttf')
+shutil.copy('assets_widget/vazirmatn_fd_bold.ttf', 'android/app/src/main/res/font/app_font_fd_bold.ttf')
+print('overlay + sounds + fonts copied')

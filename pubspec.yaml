@@ -1,7 +1,7 @@
 name: now_app
 description: "الآن / Now - Iranian calendar, clock and reminders"
 publish_to: "none"
-version: 0.5.3+10
+version: 0.5.4+11
 
 environment:
   sdk: ">=3.0.0 <4.0.0"

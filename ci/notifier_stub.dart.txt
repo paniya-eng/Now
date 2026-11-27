@@ -1,0 +1,11 @@
+import 'package:flutter/foundation.dart';
+import 'data.dart';
+
+/// نسخهٔ ویندوز: اعلان سیستم فقط در اندروید لازم است؛ در ویندوز هشدار داخل برنامه کار می‌کند.
+class Notifier {
+  static final ValueNotifier<String> status = ValueNotifier<String>('');
+  static bool get supported => false;
+  static Future<void> init() async {}
+  static Future<void> dismiss(Reminder r) async {}
+  static Future<String> test() async => '';
+}

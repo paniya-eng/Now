@@ -8,14 +8,19 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
+import android.graphics.Typeface
 import android.os.Bundle
+import android.text.SpannableStringBuilder
+import android.text.Spanned
+import android.text.style.ForegroundColorSpan
+import android.text.style.StyleSpan
 import android.util.TypedValue
 import android.view.View
 import android.widget.RemoteViews
 import org.json.JSONObject
 import java.util.Calendar
 
-/** ویجت صفحهٔ اصلی: کارت تاریخ شمسی (چپ) + ساعت (راست) */
+/** ویجت صفحهٔ اصلی: کارت تاریخ شمسی + کارت ساعت و تاریخ میلادی (مدل سفید) */
 open class NowWidgetProvider : AppWidgetProvider() {
 
     open val transparent: Boolean get() = false
@@ -43,7 +48,6 @@ open class NowWidgetProvider : AppWidgetProvider() {
     companion object {
         const val ACTION_MIDNIGHT = "com.now.now_app.MIDNIGHT"
 
-        private val ACCENTS = arrayOf("#2F6BFF", "#FF7A1A", "#E8362B", "#12A594", "#8B5CF6", "#EC4899")
         private val MONTHS_FA = arrayOf("فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور", "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند")
         private val MONTHS_EN = arrayOf("Farvardin", "Ordibehesht", "Khordad", "Tir", "Mordad", "Shahrivar", "Mehr", "Aban", "Azar", "Dey", "Bahman", "Esfand")
         private val DAYS_FA = arrayOf("شنبه", "یکشنبه", "دوشنبه", "سه‌شنبه", "چهارشنبه", "پنجشنبه", "جمعه")
@@ -94,7 +98,7 @@ open class NowWidgetProvider : AppWidgetProvider() {
         private fun build(context: Context, manager: AppWidgetManager, id: Int, transparent: Boolean): RemoteViews {
             // خواندن تنظیمات برنامهٔ فلاتر (زبان، رنگ، ۲۴ ساعته)
             var fa = true
-            var accent = 0
+            var accent = Color.parseColor("#2F6BFF")
             var h24 = true
             try {
                 val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
@@ -102,7 +106,7 @@ open class NowWidgetProvider : AppWidgetProvider() {
                 if (raw != null) {
                     val j = JSONObject(raw)
                     fa = j.optString("lang", "fa") == "fa"
-                    accent = j.optInt("accent", 0)
+                    if (j.has("accentColor")) accent = j.optLong("accentColor").toInt()
                     h24 = j.optBoolean("h24", true)
                 }
             } catch (_: Exception) {
@@ -115,32 +119,61 @@ open class NowWidgetProvider : AppWidgetProvider() {
             val month = (if (fa) MONTHS_FA else MONTHS_EN)[jal[1] - 1]
             val weekday = (if (fa) DAYS_FA else DAYS_EN)[wd]
             val dayText = if (fa) faDigits(jal[2].toString()) else jal[2].toString()
+            val yearText = if (fa) faDigits(jal[0].toString()) else jal[0].toString()
 
-            val layout = if (transparent) R.layout.now_widget_transparent else R.layout.now_widget
+            val layout = when {
+                transparent && fa -> R.layout.now_widget_transparent_fa
+                transparent -> R.layout.now_widget_transparent_en
+                fa -> R.layout.now_widget_fa
+                else -> R.layout.now_widget_en
+            }
             val v = RemoteViews(context.packageName, layout)
-            v.setTextViewText(R.id.wd_month, "$weekday  $month")
+
+            // «ماه» کم‌رنگ و «روز هفته» پررنگ، مثل طرح برنامه
+            val monthColor = if (transparent) Color.WHITE else Color.parseColor("#777777")
+            val dayColor = if (transparent) Color.WHITE else Color.parseColor("#111111")
+            val line = SpannableStringBuilder()
+            line.append(month, ForegroundColorSpan(monthColor), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            line.append("  ")
+            val start = line.length
+            line.append(weekday)
+            line.setSpan(StyleSpan(Typeface.BOLD), start, line.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            line.setSpan(ForegroundColorSpan(dayColor), start, line.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            v.setTextViewText(R.id.wd_month, line)
             v.setTextViewText(R.id.day, dayText)
+            v.setTextViewText(R.id.year, yearText)
             if (!transparent) {
-                val color = if (wd == 6) Color.parseColor("#E8564B") else Color.parseColor(ACCENTS[accent.coerceIn(0, ACCENTS.size - 1)])
-                v.setTextColor(R.id.day, color)
+                val numColor = if (wd == 6) Color.parseColor("#E8564B") else accent
+                v.setTextColor(R.id.day, numColor)
             }
 
-            // اندازهٔ متن‌ها را بر اساس اندازهٔ ویجت تنظیم کن تا درشت و متناسب با مربع‌ها باشد
+            // اندازهٔ متن‌ها متناسب با اندازهٔ ویجت
             val opts = manager.getAppWidgetOptions(id)
-            val wDp = opts.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 250).toFloat()
+            val wDp = opts.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 260).toFloat()
             val hDp = opts.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 120).toFloat()
-            val side = minOf((wDp - 12f) / 2f, hDp - 8f).coerceAtLeast(60f)
-            v.setTextViewTextSize(R.id.day, TypedValue.COMPLEX_UNIT_DIP, side * 0.56f)
-            v.setTextViewTextSize(R.id.wd_month, TypedValue.COMPLEX_UNIT_DIP, side * 0.13f)
+            val cardH = (hDp - 8f).coerceAtLeast(60f)
+            val dateW = (wDp - 24f) * 5f / 11f
+            val clockW = (wDp - 24f) * 6f / 11f
+            v.setTextViewTextSize(R.id.day, TypedValue.COMPLEX_UNIT_DIP, minOf(cardH * 0.46f, dateW * 0.55f))
+            v.setTextViewTextSize(R.id.wd_month, TypedValue.COMPLEX_UNIT_DIP, minOf(cardH * 0.12f, dateW * 0.12f))
+            v.setTextViewTextSize(R.id.year, TypedValue.COMPLEX_UNIT_DIP, minOf(cardH * 0.11f, dateW * 0.11f))
+            val clockSize = minOf(cardH * 0.34f, clockW * 0.30f)
+            val smallSize = minOf(cardH * 0.11f, clockW * 0.10f)
+
+            // ساعت فارسی: فونت با ارقام فارسی؛ در حالت انگلیسی فونت با ارقام لاتین
             val fmt = if (h24) "HH:mm" else "h:mm"
-            // ساعت فارسی: فونت وزیرمتن با ارقام فارسی؛ در حالت انگلیسی فونت با ارقام لاتین
             for (cid in intArrayOf(R.id.clock, R.id.clock_en)) {
-                v.setTextViewTextSize(cid, TypedValue.COMPLEX_UNIT_DIP, side * 0.31f)
+                v.setTextViewTextSize(cid, TypedValue.COMPLEX_UNIT_DIP, clockSize)
                 v.setCharSequence(cid, "setFormat24Hour", fmt)
                 v.setCharSequence(cid, "setFormat12Hour", fmt)
             }
+            for (cid in intArrayOf(R.id.date_g, R.id.date_g_en)) {
+                v.setTextViewTextSize(cid, TypedValue.COMPLEX_UNIT_DIP, smallSize)
+            }
             v.setViewVisibility(R.id.clock, if (fa) View.VISIBLE else View.GONE)
             v.setViewVisibility(R.id.clock_en, if (fa) View.GONE else View.VISIBLE)
+            v.setViewVisibility(R.id.date_g, if (fa) View.VISIBLE else View.GONE)
+            v.setViewVisibility(R.id.date_g_en, if (fa) View.GONE else View.VISIBLE)
 
             val open = Intent(context, MainActivity::class.java)
             val pi = PendingIntent.getActivity(

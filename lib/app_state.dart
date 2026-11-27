@@ -9,7 +9,7 @@ import 'data.dart';
 import 'jalali.dart';
 import 'strings.dart';
 
-const kVersion = '0.5.4';
+const kVersion = '0.6.0';
 
 final AppState app = AppState();
 
@@ -26,10 +26,11 @@ class AppState extends ChangeNotifier {
   bool showSeconds = true;
   bool systemFont = false;
   int fontSize = 1; // 0 کوچک، 1 متوسط، 2 بزرگ
-  int accent = 0;
+  int accentValue = 0xFF2F6BFF; // رنگ اصلی (ARGB)
   int themeMode = 0; // 0 خودکار، 1 روشن، 2 تاریک
   int silentAfter = 5; // دقیقه؛ ۰ یعنی هرگز
   int snooze = 10;
+  int followUpMin = 15; // یادآوری پیگیری پس از چند دقیقه؛ ۰ = خاموش
   int clockOffsetMin = 0; // جابه‌جایی ساعت برنامه (دقیقه)
   Set<int> leads = {}; // یادآوری زودتر از موعد (دقیقه)
   List<String> cities = ['london', 'newyork', 'dubai'];
@@ -43,11 +44,15 @@ class AppState extends ChangeNotifier {
   Map<String, int> alerted = {};
   Map<String, int> snoozedUntil = {};
 
-  // همگام‌سازی
+  // حساب کاربری و همگام‌سازی
   String syncUrl = '';
-  String syncKey = '';
   bool syncAuto = true;
   int lastSyncMs = 0;
+  String authToken = '';
+  String accountPhone = '';
+  String accountName = '';
+  String avatarName = '';
+  bool avatarDirty = false;
 
   // ویندوز
   bool closeToTray = true;
@@ -60,7 +65,8 @@ class AppState extends ChangeNotifier {
 
   List<Reminder> get reminders => _rem.where((r) => !r.deleted).toList();
   List<UserOccasion> get userOcc => _occ.where((o) => !o.deleted).toList();
-  bool get syncConfigured => syncUrl.trim().isNotEmpty && syncKey.trim().length >= 8;
+  bool get loggedIn => authToken.isNotEmpty;
+  bool get syncConfigured => syncUrl.trim().isNotEmpty && loggedIn;
 
   Future<void> load() async {
     try {
@@ -73,10 +79,12 @@ class AppState extends ChangeNotifier {
         showSeconds = (m['sec'] as bool?) ?? showSeconds;
         systemFont = (m['sysfont'] as bool?) ?? systemFont;
         fontSize = (m['fsize'] as int?) ?? fontSize;
-        accent = (m['accent'] as int?) ?? accent;
+        final oldAccent = (m['accent'] as int?) ?? 0;
+        accentValue = (m['accentColor'] as int?) ?? kAccents[oldAccent < 0 ? 0 : (oldAccent >= kAccents.length ? kAccents.length - 1 : oldAccent)].toARGB32();
         themeMode = (m['theme'] as int?) ?? themeMode;
         silentAfter = (m['silent'] as int?) ?? silentAfter;
         snooze = (m['snooze'] as int?) ?? snooze;
+        followUpMin = (m['follow'] as int?) ?? followUpMin;
         clockOffsetMin = (m['offset'] as int?) ?? 0;
         leads = ((m['leads'] as List?) ?? []).map((e) => e as int).toSet();
         cities = ((m['cities'] as List?) ?? cities).map((e) => e as String).toList();
@@ -94,7 +102,11 @@ class AppState extends ChangeNotifier {
             .map((e) => ReminderCategory.fromJson(Map<String, dynamic>.from(e as Map)))
             .toList();
         syncUrl = (m['syncUrl'] as String?) ?? '';
-        syncKey = (m['syncKey'] as String?) ?? '';
+        authToken = (m['token'] as String?) ?? '';
+        accountPhone = (m['phone'] as String?) ?? '';
+        accountName = (m['uname'] as String?) ?? '';
+        avatarName = (m['avatar'] as String?) ?? '';
+        avatarDirty = (m['avdirty'] as bool?) ?? false;
         syncAuto = (m['syncAuto'] as bool?) ?? true;
         lastSyncMs = (m['lastSync'] as int?) ?? 0;
         closeToTray = (m['tray'] as bool?) ?? true;
@@ -112,25 +124,26 @@ class AppState extends ChangeNotifier {
     Jalali.clock = appNow;
   }
 
-  void _commit({bool fromSync = false}) {
-    alerted.removeWhere((k, _) => !_rem.any((r) => r.id == k.split('#').first));
+  void _commit({bool fromSync = false, bool notify = true}) {
+    alerted.removeWhere((k, _) => !_rem.any((r) => r.id == k.split('#').first.split('!').first.split('@').first));
     snoozedUntil.removeWhere((k, _) => !_rem.any((r) => r.id == k));
     _p?.setString(
       'data',
       jsonEncode({
         'lang': lang, 'h24': h24, 'sec': showSeconds, 'sysfont': systemFont,
-        'fsize': fontSize, 'accent': accent, 'theme': themeMode,
-        'silent': silentAfter, 'snooze': snooze, 'offset': clockOffsetMin,
+        'fsize': fontSize, 'accentColor': accentValue, 'theme': themeMode,
+        'silent': silentAfter, 'snooze': snooze, 'follow': followUpMin, 'offset': clockOffsetMin,
         'leads': leads.toList(), 'cities': cities,
         'reminders': _rem.map((r) => r.toJson()).toList(),
         'occ': _occ.map((o) => o.toJson()).toList(),
         'cats': categories.map((c) => c.toJson()).toList(),
         'sound': soundId, 'csounds': customSounds, 'alerted': alerted, 'snz': snoozedUntil,
-        'syncUrl': syncUrl, 'syncKey': syncKey, 'syncAuto': syncAuto, 'lastSync': lastSyncMs,
+        'syncUrl': syncUrl, 'syncAuto': syncAuto, 'lastSync': lastSyncMs,
+        'token': authToken, 'phone': accountPhone, 'uname': accountName, 'avatar': avatarName, 'avdirty': avatarDirty,
         'tray': closeToTray, 'startup': autoStart,
       }),
     );
-    notifyListeners();
+    if (notify) notifyListeners();
     if (!fromSync) onDataChanged?.call();
   }
 
@@ -140,18 +153,52 @@ class AppState extends ChangeNotifier {
   void setShowSeconds(bool v) { showSeconds = v; _commit(); }
   void setSystemFont(bool v) { systemFont = v; _commit(); }
   void setFontSize(int v) { fontSize = v; _commit(); }
-  void setAccent(int v) { accent = v; _commit(); }
+  void setAccentColor(int argb) { accentValue = argb; _commit(); }
+  void setFollowUp(int v) { followUpMin = v; _commit(); }
   void setThemeMode(int v) { themeMode = v; _commit(); }
   void setSilentAfter(int v) { silentAfter = v; _commit(); }
   void setSnooze(int v) { snooze = v; _commit(); }
   void setClockOffset(int minutes) { clockOffsetMin = minutes; _commit(); }
   void setCloseToTray(bool v) { closeToTray = v; _commit(); }
   void setAutoStart(bool v) { autoStart = v; _commit(); }
-  void setSyncConfig(String url, String key, bool auto) {
+  void setSyncServer(String url, bool auto) {
     syncUrl = url.trim();
-    syncKey = key.trim();
     syncAuto = auto;
     _commit();
+  }
+
+  void setAccount(String token, String phone, String name) {
+    authToken = token;
+    accountPhone = phone;
+    accountName = name;
+    _commit();
+  }
+
+  void setAccountName(String name) {
+    accountName = name;
+    _commit();
+  }
+
+  void logout() {
+    authToken = '';
+    accountPhone = '';
+    accountName = '';
+    lastSyncMs = 0;
+    avatarDirty = false;
+    _commit();
+  }
+
+  void setAvatar(String name, {bool fromSync = false}) {
+    final old = avatarName;
+    avatarName = name;
+    avatarDirty = !fromSync && name.isNotEmpty;
+    if (old.isNotEmpty && old != name) deleteImageFile(old);
+    _commit(fromSync: fromSync);
+  }
+
+  void clearAvatarDirty() {
+    avatarDirty = false;
+    _commit(fromSync: true, notify: false);
   }
 
   void markSynced() {
@@ -191,11 +238,11 @@ class AppState extends ChangeNotifier {
     _commit();
   }
 
-  void markAlerted(String key, int ms) { alerted[key] = ms; _commit(fromSync: true); }
-  void clearSnooze(String id) { snoozedUntil.remove(id); _commit(fromSync: true); }
+  void markAlerted(String key, int ms) { alerted[key] = ms; _commit(fromSync: true, notify: false); }
+  void clearSnooze(String id) { snoozedUntil.remove(id); _commit(fromSync: true, notify: false); }
   void snoozeReminder(String id) {
     snoozedUntil[id] = appNow().add(Duration(minutes: snooze)).millisecondsSinceEpoch;
-    _commit(fromSync: true);
+    _commit(fromSync: true, notify: false);
   }
 
   // ----- ناوبری -----
@@ -316,6 +363,7 @@ class AppState extends ChangeNotifier {
       Reminder(
         id: newId(), title: title, time: time, note: note, catId: catId, image: image,
         repeatType: repeatType, repeatN: repeatN, updatedAt: nowMs(),
+        log: [{'t': nowMs(), 'k': 'created', 'x': ''}],
       ),
     ];
     _commit();
@@ -357,6 +405,7 @@ class AppState extends ChangeNotifier {
     final rem = r;
     if (rem.repeatType == 0) {
       rem.done = true;
+      rem.log.add({'t': nowMs(), 'k': 'done', 'x': ''});
       rem.updatedAt = nowMs();
       _commit();
       return () => restore(id);
@@ -365,7 +414,9 @@ class AppState extends ChangeNotifier {
     final copy = Reminder(
       id: newId(), title: rem.title, time: oldTime, done: true,
       note: rem.note, catId: rem.catId, image: rem.image, updatedAt: nowMs(),
+      log: [...rem.log, {'t': nowMs(), 'k': 'done', 'x': ''}],
     );
+    rem.log.clear();
     rem.time = nextOccurrence(rem, appNow());
     rem.updatedAt = nowMs();
     _rem = [..._rem, copy];
@@ -417,6 +468,24 @@ class AppState extends ChangeNotifier {
       gcImage(i);
     }
     _commit();
+  }
+
+  // ----- گردش کار و گزارش -----
+  void addLog(String id, String kind, [String text = '']) {
+    for (final r in _rem) {
+      if (r.id == id) {
+        r.log.add({'t': nowMs(), 'k': kind, 'x': text});
+        r.updatedAt = nowMs();
+      }
+    }
+    _commit(notify: kind == 'report');
+  }
+
+  Reminder? byId(String id) {
+    for (final r in _rem) {
+      if (r.id == id && !r.deleted) return r;
+    }
+    return null;
   }
 
   // ----- مناسبت‌های کاربر -----

@@ -47,18 +47,17 @@ class Notifier {
 
   static Future<void> _doSchedule() async {
     try {
-      // ویجت اندروید هم با تغییر تنظیمات تازه شود
-      try {
-        await _widgetChannel.invokeMethod('refresh');
-      } catch (_) {}
-
       final active = app.reminders.where((r) => !r.done).toList();
       final sig = [
         for (final r in active) '${r.id}@${r.time.millisecondsSinceEpoch}:${r.title}',
-        'L${app.leads.toList()..sort()}', _sound(), 'S${app.silentAfter}', 'O${app.clockOffsetMin}', Tr.lang,
+        'L${app.leads.toList()..sort()}', _sound(), 'S${app.silentAfter}', 'O${app.clockOffsetMin}', 'F${app.followUpMin}', Tr.lang,
+        'A${app.accentValue}', 'H${app.h24}',
       ].join('|');
       if (sig == _lastSig) return;
       _lastSig = sig;
+      try {
+        await _widgetChannel.invokeMethod('refresh'); // ویجت اندروید با تغییر تنظیمات تازه شود
+      } catch (_) {}
 
       await _fln.cancelAll();
       status.value = '';
@@ -70,6 +69,12 @@ class Notifier {
         final base = _base(r);
         final body = r.note.isNotEmpty ? r.note : fmtTime(r.time);
         if (real.isAfter(nowReal)) _note(await _one(base, r.title, body, real));
+        if (app.followUpMin > 0) {
+          final fu = real.add(Duration(minutes: app.followUpMin));
+          if (fu.isAfter(nowReal)) {
+            _note(await _one(base + 13, (Tr.fa ? 'پیگیری: ' : 'Follow-up: ') + r.title, body, fu));
+          }
+        }
         var i = 0;
         for (final m in leads) {
           i++;
@@ -136,7 +141,7 @@ class Notifier {
     if (!supported) return;
     try {
       final base = _base(r);
-      for (var i = 0; i <= 12; i++) {
+      for (var i = 0; i <= 13; i++) {
         await _fln.cancel(base + i);
       }
     } catch (_) {}

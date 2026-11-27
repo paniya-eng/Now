@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'app_state.dart';
 import 'sync_core.dart';
 
-/// همگام‌سازی خودکار و دستی با سرور (ویندوز و موبایل با یک آدرس و یک کلید)
+/// همگام‌سازی خودکار و دستی (فقط پس از ورود به حساب کاربری)
 class SyncService extends ChangeNotifier {
   SyncService._();
   static final SyncService instance = SyncService._();
@@ -36,7 +36,7 @@ class SyncService extends ChangeNotifier {
     busy = true;
     error = '';
     notifyListeners();
-    final client = SyncClient(app.syncUrl, app.syncKey);
+    final client = SyncClient(app.syncUrl, app.authToken);
     try {
       var done = false;
       for (var attempt = 0; attempt < 4 && !done; attempt++) {
@@ -51,6 +51,7 @@ class SyncService extends ChangeNotifier {
       }
       if (!done) throw SyncException('conflict');
       await _syncImages(client);
+      await _syncProfile(client);
       app.markSynced();
     } on SocketException {
       error = 'network';
@@ -80,6 +81,41 @@ class SyncService extends ChangeNotifier {
         if (bytes != null) await f.writeAsBytes(bytes);
       }
     }
-    app.markSynced(); // برای تازه‌شدن نمایش تصاویر دانلودشده
+  }
+
+  /// نام و عکس پروفایل بین دستگاه‌ها
+  Future<void> _syncProfile(SyncClient client) async {
+    final me = await client.getMe();
+    final rName = (me['name'] as String?) ?? '';
+    final rAvatar = (me['avatar'] as String?) ?? '';
+    if (app.accountName.isEmpty && rName.isNotEmpty) {
+      app.setAccountName(rName);
+    }
+    if (app.avatarName.isNotEmpty && app.avatarDirty) {
+      final f = File(app.imagePath(app.avatarName));
+      if (f.existsSync()) {
+        await client.putBlob(app.avatarName, await f.readAsBytes());
+        await client.putMe(avatar: app.avatarName);
+        app.clearAvatarDirty();
+      }
+    } else if (rAvatar.isNotEmpty && rAvatar != app.avatarName && app.imageDir.isNotEmpty) {
+      final bytes = await client.getBlob(rAvatar);
+      if (bytes != null) {
+        await File(app.imagePath(rAvatar)).writeAsBytes(bytes);
+        app.setAvatar(rAvatar, fromSync: true);
+      }
+    }
+  }
+
+  /// بعد از ویرایش نام در برنامه
+  Future<void> pushName() async {
+    if (!app.syncConfigured) return;
+    final client = SyncClient(app.syncUrl, app.authToken);
+    try {
+      await client.putMe(name: app.accountName);
+    } catch (_) {
+    } finally {
+      client.close();
+    }
   }
 }

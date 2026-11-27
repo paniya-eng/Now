@@ -18,7 +18,8 @@ extension Ctx on BuildContext {
   Color get card => isDark ? const Color(0xFF22242F) : Colors.white;
   Color get bg => isDark ? const Color(0xFF101116) : const Color(0xFFEDEEF3);
   Color get sub => isDark ? Colors.white60 : Colors.black54;
-  Color get accent => kAccents[app.accent];
+  Color get accent => Color(app.accentValue);
+  Color get onAccent => accent.computeLuminance() > 0.6 ? Colors.black : Colors.white;
   Color get ink => isDark ? Colors.white : const Color(0xFF14151C);
 }
 
@@ -734,4 +735,215 @@ class OccasionRow extends StatelessWidget {
             ),
         ]),
       );
+}
+
+
+// ---------- بخش جمع‌شونده با فلش پویا ----------
+class CollapsibleSection extends StatefulWidget {
+  const CollapsibleSection({
+    super.key,
+    required this.title,
+    required this.child,
+    this.count,
+    this.initiallyExpanded = true,
+    this.icon,
+    this.bold = false,
+  });
+  final String title;
+  final Widget child;
+  final int? count;
+  final bool initiallyExpanded;
+  final String? icon;
+  final bool bold;
+
+  @override
+  State<CollapsibleSection> createState() => _CollapsibleSectionState();
+}
+
+class _CollapsibleSectionState extends State<CollapsibleSection> {
+  late bool _open = widget.initiallyExpanded;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => setState(() => _open = !_open),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Row(children: [
+            if (widget.icon != null) ...[AppIcon(widget.icon!, size: 20, color: context.accent), const SizedBox(width: 10)],
+            Expanded(
+              child: Text(widget.title,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: widget.bold ? 17 : 14,
+                    color: widget.bold ? context.ink : context.sub,
+                  )),
+            ),
+            if (widget.count != null)
+              Container(
+                margin: const EdgeInsetsDirectional.only(end: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(color: context.accent.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(10)),
+                child: Text(nd(widget.count!), style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: context.ink)),
+              ),
+            AnimatedRotation(
+              turns: _open ? 0.5 : 0,
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOut,
+              child: AppIcon('chevron-down', size: 22, color: context.sub),
+            ),
+          ]),
+        ),
+      ),
+      AnimatedSize(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOut,
+        alignment: Alignment.topCenter,
+        child: _open ? widget.child : const SizedBox(width: double.infinity),
+      ),
+    ]);
+  }
+}
+
+// ---------- انتخاب رنگ (طیف کامل + کد Hex) ----------
+double _unit(double v) => v < 0 ? 0.0 : (v > 1 ? 1.0 : v);
+
+Future<int?> showColorPicker(BuildContext context, int initial) =>
+    showDialog<int>(context: context, builder: (_) => _ColorPickerDialog(initial: initial));
+
+class _ColorPickerDialog extends StatefulWidget {
+  const _ColorPickerDialog({required this.initial});
+  final int initial;
+  @override
+  State<_ColorPickerDialog> createState() => _ColorPickerDialogState();
+}
+
+class _ColorPickerDialogState extends State<_ColorPickerDialog> {
+  late HSVColor _hsv = HSVColor.fromColor(Color(widget.initial));
+  late final TextEditingController _hex = TextEditingController(text: _toHex(Color(widget.initial)));
+
+  static String _toHex(Color c) => (c.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase();
+
+  @override
+  void dispose() {
+    _hex.dispose();
+    super.dispose();
+  }
+
+  void _set(HSVColor h) {
+    setState(() {
+      _hsv = h;
+      _hex.text = _toHex(h.toColor());
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const h = 200.0;
+    final pure = HSVColor.fromAHSV(1, _hsv.hue, 1, 1).toColor();
+    final cur = _hsv.toColor();
+    return Dialog(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 340),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Text(tr('pick_color'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: h,
+              child: LayoutBuilder(builder: (context, cons) {
+                final w = cons.maxWidth;
+                void upd(Offset p) => _set(_hsv.withSaturation(_unit(p.dx / w)).withValue(1 - _unit(p.dy / h)));
+                return GestureDetector(
+                  onPanDown: (d) => upd(d.localPosition),
+                  onPanUpdate: (d) => upd(d.localPosition),
+                  child: Stack(children: [
+                    Container(decoration: BoxDecoration(borderRadius: BorderRadius.circular(14), gradient: LinearGradient(colors: [Colors.white, pure]))),
+                    Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(14),
+                        gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.transparent, Colors.black]),
+                      ),
+                    ),
+                    Positioned(
+                      left: _hsv.saturation * w - 11,
+                      top: (1 - _hsv.value) * h - 11,
+                      child: Container(
+                        width: 22,
+                        height: 22,
+                        decoration: BoxDecoration(shape: BoxShape.circle, color: cur, border: Border.all(color: Colors.white, width: 3), boxShadow: const [BoxShadow(color: Colors.black38, blurRadius: 4)]),
+                      ),
+                    ),
+                  ]),
+                );
+              }),
+            ),
+            const SizedBox(height: 14),
+            SizedBox(
+              height: 22,
+              child: LayoutBuilder(builder: (context, cons) {
+                final w = cons.maxWidth;
+                void upd(Offset p) => _set(_hsv.withHue(_unit(p.dx / w) * 359.9));
+                return GestureDetector(
+                  onPanDown: (d) => upd(d.localPosition),
+                  onPanUpdate: (d) => upd(d.localPosition),
+                  child: Stack(clipBehavior: Clip.none, children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(11),
+                        gradient: LinearGradient(colors: [for (var i = 0; i <= 6; i++) HSVColor.fromAHSV(1, i * 60.0 % 360, 1, 1).toColor()]),
+                      ),
+                    ),
+                    Positioned(
+                      left: (_hsv.hue / 360) * w - 11,
+                      top: 0,
+                      child: Container(
+                        width: 22,
+                        height: 22,
+                        decoration: BoxDecoration(shape: BoxShape.circle, color: pure, border: Border.all(color: Colors.white, width: 3), boxShadow: const [BoxShadow(color: Colors.black38, blurRadius: 4)]),
+                      ),
+                    ),
+                  ]),
+                );
+              }),
+            ),
+            const SizedBox(height: 14),
+            Row(children: [
+              Container(width: 40, height: 40, decoration: BoxDecoration(color: cur, shape: BoxShape.circle)),
+              const SizedBox(width: 12),
+              const Text('#', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Ltr(
+                  child: TextField(
+                    controller: _hex,
+                    maxLength: 6,
+                    textCapitalization: TextCapitalization.characters,
+                    decoration: const InputDecoration(counterText: '', hintText: 'F54927'),
+                    onChanged: (v) {
+                      if (v.length == 6 && RegExp(r'^[0-9a-fA-F]{6}$').hasMatch(v)) {
+                        setState(() => _hsv = HSVColor.fromColor(Color(int.parse('FF$v', radix: 16))));
+                      }
+                    },
+                  ),
+                ),
+              ),
+            ]),
+            const SizedBox(height: 14),
+            Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+              TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('cancel'))),
+              FilledButton(
+                style: FilledButton.styleFrom(backgroundColor: cur, foregroundColor: cur.computeLuminance() > 0.6 ? Colors.black : Colors.white),
+                onPressed: () => Navigator.pop(context, cur.toARGB32()),
+                child: Text(tr('ok')),
+              ),
+            ]),
+          ]),
+        ),
+      ),
+    );
+  }
 }

@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:gravity="center"
+    android:layoutDirection="ltr"
+    android:orientation="horizontal"
+    android:padding="4dp">
+
+    <!-- کارت تاریخ -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_marginHorizontal="4dp"
+        android:layout_weight="5"
+        android:background="@drawable/now_card_white"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:padding="6dp">
+
+            <TextView
+                android:id="@+id/wd_month"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/app_font_bold"
+                android:includeFontPadding="false"
+                android:maxLines="1"
+                android:textColor="#FF777777"
+                android:textSize="14sp" />
+            <TextView
+                android:id="@+id/day"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/app_font_bold"
+                android:includeFontPadding="false"
+                android:maxLines="1"
+                android:textColor="#FF2F6BFF"
+                android:textSize="60sp" />
+            <TextView
+                android:id="@+id/year"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/app_font_bold"
+                android:includeFontPadding="false"
+                android:maxLines="1"
+                android:textColor="#FF777777"
+                android:textSize="13sp" />
+    </LinearLayout>
+
+    <!-- کارت ساعت -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_marginHorizontal="4dp"
+        android:layout_weight="6"
+        android:background="@drawable/now_card_white"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:padding="6dp">
+
+            <TextClock
+                android:id="@+id/clock"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/app_font_fd_bold"
+                android:format12Hour="h:mm"
+                android:format24Hour="HH:mm"
+                android:includeFontPadding="false"
+                android:maxLines="1"
+                android:textColor="#FF111111"
+                android:textSize="38sp" />
+            <TextClock
+                android:id="@+id/clock_en"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/app_font_bold"
+                android:format12Hour="h:mm"
+                android:format24Hour="HH:mm"
+                android:includeFontPadding="false"
+                android:maxLines="1"
+                android:textColor="#FF111111"
+                android:textSize="38sp" />
+            <TextClock
+                android:id="@+id/date_g"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/app_font_fd_bold"
+                android:format12Hour="d MMMM yyyy"
+                android:format24Hour="d MMMM yyyy"
+                android:includeFontPadding="false"
+                android:maxLines="1"
+                android:textColor="#FF777777"
+                android:textSize="13sp" />
+            <TextClock
+                android:id="@+id/date_g_en"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/app_font_bold"
+                android:format12Hour="d MMMM yyyy"
+                android:format24Hour="d MMMM yyyy"
+                android:includeFontPadding="false"
+                android:maxLines="1"
+                android:textColor="#FF777777"
+                android:textSize="13sp" />
+    </LinearLayout>
+</LinearLayout>

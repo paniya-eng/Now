@@ -47,3 +47,10 @@ String leadLabel(int minutes) {
   final d = minutes ~/ 1440;
   return Tr.fa ? '${nd(d)} روز' : '$d day${d == 1 ? '' : 's'}';
 }
+
+/// تاریخ و ساعت کامل (با ثانیه) برای گزارش‌ها
+String fmtStamp(DateTime d) {
+  final j = Jalali.fromDateTime(d);
+  final ss = nd(d.second.toString().padLeft(2, '0'));
+  return '${nd(j.year)}/${nd(j.month.toString().padLeft(2, '0'))}/${nd(j.day.toString().padLeft(2, '0'))} • ${fmtHM(d)}:$ss';
+}

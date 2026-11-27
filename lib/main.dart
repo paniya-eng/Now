@@ -15,10 +15,10 @@ import 'search_page.dart';
 import 'strings.dart';
 import 'ui.dart';
 
-Future<void> main() async {
+Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
   await app.load();
-  await Desktop.instance.init();
+  await Desktop.instance.init(args);
   Notifier.init();
   SyncService.instance.start();
   AlarmService.instance.start();
@@ -26,7 +26,7 @@ Future<void> main() async {
 }
 
 ThemeData _theme(bool dark) {
-  final accent = kAccents[app.accent];
+  final accent = Color(app.accentValue);
   final cs = ColorScheme.fromSeed(seedColor: accent, brightness: dark ? Brightness.dark : Brightness.light);
   return ThemeData(
     useMaterial3: true,
@@ -49,7 +49,7 @@ class NowApp extends StatelessWidget {
     return ListenableBuilder(
       listenable: app,
       builder: (context, _) => MaterialApp(
-        title: 'Now',
+        title: 'Now / الآن',
         debugShowCheckedModeBanner: false,
         scrollBehavior: _AppScroll(),
         navigatorKey: navKey,
@@ -127,19 +127,18 @@ class _NavBar extends StatelessWidget {
               curve: Curves.easeOutCubic,
               padding: EdgeInsets.symmetric(horizontal: app.tab == i ? 16 : 12, vertical: 11),
               decoration: BoxDecoration(
-                color: app.tab == i ? Colors.black : Colors.transparent,
+                color: app.tab == i ? context.accent : Colors.transparent,
                 borderRadius: BorderRadius.circular(22),
-                border: (app.tab == i && context.isDark) ? Border.all(color: Colors.white24) : null,
               ),
               child: AnimatedSize(
                 duration: const Duration(milliseconds: 260),
                 curve: Curves.easeOutCubic,
                 alignment: AlignmentDirectional.centerStart,
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  AppIcon(_items[i].$1, size: 22, color: app.tab == i ? Colors.white : context.ink, stroke: 1.8),
+                  AppIcon(_items[i].$1, size: 22, color: app.tab == i ? context.onAccent : context.ink, stroke: 1.8),
                   if (app.tab == i) ...[
                     const SizedBox(width: 7),
-                    Text(tr(_items[i].$2), style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+                    Text(tr(_items[i].$2), style: TextStyle(color: context.onAccent, fontSize: 13, fontWeight: FontWeight.w600)),
                   ],
                 ]),
               ),

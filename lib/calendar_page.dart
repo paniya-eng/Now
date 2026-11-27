@@ -87,33 +87,43 @@ class _CalendarPageState extends State<CalendarPage> {
                 Text(jFull(_sel), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 2),
                 Text(gFull(_sel.toDateTime()), style: TextStyle(color: context.sub)),
-                const Divider(height: 24),
-                Text(tr('occasions'), style: TextStyle(color: context.sub, fontWeight: FontWeight.bold)),
-                if (selOcc.isEmpty)
-                  Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Text(tr('no_occasion_day'), style: TextStyle(color: context.sub)))
-                else
-                  for (final o in selOcc) OccasionRow(o),
-                Align(
-                  alignment: AlignmentDirectional.centerStart,
-                  child: TextButton.icon(
-                    onPressed: () => addOccasionDialog(context, _sel),
-                    icon: const AppIcon('flag', size: 18),
-                    label: Text(tr('add_occasion')),
-                  ),
+                const Divider(height: 20),
+                CollapsibleSection(
+                  title: tr('occasions'),
+                  count: selOcc.length,
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    if (selOcc.isEmpty)
+                      Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Text(tr('no_occasion_day'), style: TextStyle(color: context.sub)))
+                    else
+                      for (final o in selOcc) OccasionRow(o),
+                    Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: TextButton.icon(
+                        onPressed: () => addOccasionDialog(context, _sel),
+                        icon: const AppIcon('flag', size: 18),
+                        label: Text(tr('add_occasion')),
+                      ),
+                    ),
+                  ]),
                 ),
-                const Divider(height: 24),
-                Text(tr('reminders'), style: TextStyle(color: context.sub, fontWeight: FontWeight.bold)),
-                if (selRem.isEmpty)
-                  Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Text(tr('no_reminders_day'), style: TextStyle(color: context.sub)))
-                else
-                  for (final r in selRem) ReminderTile(r),
-                Align(
-                  alignment: AlignmentDirectional.centerStart,
-                  child: TextButton.icon(
-                    onPressed: () => editReminder(context, null, date: _sel),
-                    icon: const AppIcon('calendar-plus', size: 18),
-                    label: Text(tr('add_reminder')),
-                  ),
+                const Divider(height: 8),
+                CollapsibleSection(
+                  title: tr('reminders'),
+                  count: selRem.length,
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    if (selRem.isEmpty)
+                      Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Text(tr('no_reminders_day'), style: TextStyle(color: context.sub)))
+                    else
+                      for (final r in selRem) ReminderTile(r),
+                    Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: TextButton.icon(
+                        onPressed: () => editReminder(context, null, date: _sel),
+                        icon: const AppIcon('calendar-plus', size: 18),
+                        label: Text(tr('add_reminder')),
+                      ),
+                    ),
+                  ]),
                 ),
               ]),
             ),

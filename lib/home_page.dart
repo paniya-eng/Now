@@ -21,7 +21,7 @@ class HomePage extends StatelessWidget {
           ListView(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 110),
             children: [
-              const _TopRow(),
+              const HeaderCards(),
               const SizedBox(height: 12),
               _TodayOccasions(),
               const SizedBox(height: 18),
@@ -61,8 +61,8 @@ class HomePage extends StatelessWidget {
   }
 }
 
-class _TopRow extends StatelessWidget {
-  const _TopRow();
+class HeaderCards extends StatelessWidget {
+  const HeaderCards({super.key});
   @override
   Widget build(BuildContext context) {
     return LiveTime(builder: (context, now) {

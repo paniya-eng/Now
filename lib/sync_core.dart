@@ -62,7 +62,7 @@ class SyncException implements Exception {
 }
 
 class SyncClient {
-  SyncClient(String url, this.key) : base = _normalize(url) {
+  SyncClient(String url, this.key) : base = normalizeUrl(url) {
     _http.connectionTimeout = const Duration(seconds: 10);
   }
 
@@ -70,7 +70,7 @@ class SyncClient {
   final String key;
   final HttpClient _http = HttpClient();
 
-  static String _normalize(String u) {
+  static String normalizeUrl(String u) {
     var s = u.trim();
     if (!s.startsWith('http://') && !s.startsWith('https://')) s = 'http://$s';
     while (s.endsWith('/')) {
@@ -128,6 +128,23 @@ class SyncClient {
     return true;
   }
 
+  /// پروفایل حساب: {phone, name, avatar}
+  Future<Map<String, dynamic>> getMe() async {
+    final res = await _send('GET', '/me');
+    final bytes = await _readAll(res);
+    if (res.statusCode == 401 || res.statusCode == 403) throw SyncException('auth');
+    if (res.statusCode != 200) throw SyncException('HTTP ${res.statusCode}');
+    return Map<String, dynamic>.from(jsonDecode(utf8.decode(bytes)) as Map);
+  }
+
+  Future<void> putMe({String? name, String? avatar}) async {
+    final body = <String, dynamic>{if (name != null) 'name': name, if (avatar != null) 'avatar': avatar};
+    final res = await _send('PUT', '/me', body: utf8.encode(jsonEncode(body)), headers: {'content-type': 'application/json'});
+    await _readAll(res);
+    if (res.statusCode == 401 || res.statusCode == 403) throw SyncException('auth');
+    if (res.statusCode != 200) throw SyncException('HTTP ${res.statusCode}');
+  }
+
   Future<Set<String>> listBlobs() async {
     final res = await _send('GET', '/blobs');
     final bytes = await _readAll(res);
@@ -148,4 +165,107 @@ class SyncClient {
     if (res.statusCode != 200) throw SyncException('HTTP ${res.statusCode}');
     return bytes;
   }
+}
+
+
+/// تبدیل ارقام فارسی/عربی به انگلیسی و حذف فاصله و خط تیره از شماره
+String normalizePhone(String input) {
+  const fa = '۰۱۲۳۴۵۶۷۸۹';
+  const ar = '٠١٢٣٤٥٦٧٨٩';
+  final b = StringBuffer();
+  for (final ch in input.runes) {
+    final c = String.fromCharCode(ch);
+    final i1 = fa.indexOf(c);
+    final i2 = ar.indexOf(c);
+    if (i1 >= 0) {
+      b.write(i1);
+    } else if (i2 >= 0) {
+      b.write(i2);
+    } else if (RegExp(r'[0-9+]').hasMatch(c)) {
+      b.write(c);
+    }
+  }
+  return b.toString();
+}
+
+class AuthException implements Exception {
+  AuthException(this.code);
+  /// exists | invalid_phone | weak_password | bad_credentials | bad_code | wait | network | server
+  final String code;
+  @override
+  String toString() => code;
+}
+
+class AuthResult {
+  AuthResult(this.token, this.phone, this.name, this.avatar);
+  final String token;
+  final String phone;
+  final String name;
+  final String avatar;
+}
+
+/// ثبت‌نام و ورود با شمارهٔ موبایل
+class AuthApi {
+  AuthApi(String url) : base = SyncClient.normalizeUrl(url) {
+    _http.connectionTimeout = const Duration(seconds: 10);
+  }
+  final String base;
+  final HttpClient _http = HttpClient();
+
+  void close() => _http.close(force: true);
+
+  Future<Map<String, dynamic>> _post(String path, Map<String, dynamic> body) async {
+    try {
+      final req = await _http.postUrl(Uri.parse('$base$path')).timeout(const Duration(seconds: 12));
+      final data = utf8.encode(jsonEncode(body));
+      req.headers.set('content-type', 'application/json');
+      req.headers.contentLength = data.length;
+      req.add(data);
+      final res = await req.close().timeout(const Duration(seconds: 30));
+      final b = BytesBuilder(copy: false);
+      await for (final c in res) {
+        b.add(c);
+      }
+      Map<String, dynamic> j = {};
+      try {
+        j = Map<String, dynamic>.from(jsonDecode(utf8.decode(b.takeBytes())) as Map);
+      } catch (_) {}
+      if (res.statusCode == 200) return j;
+      final err = (j['error'] as String?) ?? '';
+      throw AuthException(switch (err) {
+        'exists' => 'exists',
+        'invalid_phone' => 'invalid_phone',
+        'weak_password' => 'weak_password',
+        'bad_credentials' => 'bad_credentials',
+        'bad_code' => 'bad_code',
+        'wait' => 'wait',
+        _ => res.statusCode == 429 ? 'wait' : 'server',
+      });
+    } on AuthException {
+      rethrow;
+    } on SocketException {
+      throw AuthException('network');
+    } on TimeoutException {
+      throw AuthException('network');
+    } on HandshakeException {
+      throw AuthException('network');
+    } on FormatException {
+      throw AuthException('network');
+    }
+  }
+
+  /// آیا سرور تأیید پیامکی می‌خواهد؟ (اگر بله، کد فرستاده می‌شود)
+  Future<bool> requestCode(String phone) async {
+    final j = await _post('/auth/otp', {'phone': normalizePhone(phone)});
+    return (j['otp'] as bool?) ?? false;
+  }
+
+  AuthResult _result(Map<String, dynamic> j) =>
+      AuthResult((j['token'] as String?) ?? '', (j['phone'] as String?) ?? '', (j['name'] as String?) ?? '', (j['avatar'] as String?) ?? '');
+
+  Future<AuthResult> register({required String phone, required String password, String name = '', String code = ''}) async =>
+      _result(await _post('/auth/register', {'phone': normalizePhone(phone), 'password': password, 'name': name, 'code': code}));
+
+  Future<AuthResult> login({required String phone, required String password}) async =>
+      _result(await _post('/auth/login', {'phone': normalizePhone(phone), 'password': password}));
 }

@@ -21,7 +21,7 @@ perms = ['INTERNET', 'POST_NOTIFICATIONS', 'SCHEDULE_EXACT_ALARM', 'USE_EXACT_AL
 perm_xml = ''.join('\n    <uses-permission android:name="android.permission.%s"/>' % p
                    for p in perms if 'android.permission.%s"' % p not in m)
 m = re.sub(r'(<manifest[^>]*>)', lambda x: x.group(1) + perm_xml, m, count=1)
-m = re.sub(r'android:label="[^"]*"', 'android:label="الآن"', m, count=1)
+m = re.sub(r'android:label="[^"]*"', 'android:label="Now / الآن"', m, count=1)
 if 'usesCleartextTraffic' not in m:
     m = m.replace('<application', '<application\n        android:usesCleartextTraffic="true"', 1)
 if 'showWhenLocked' not in m:
@@ -37,7 +37,7 @@ receivers = '''
                 <action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/>
             </intent-filter>
         </receiver>
-        <receiver android:name=".NowWidgetProvider" android:label="الآن (سفید)" android:exported="true">
+        <receiver android:name=".NowWidgetProvider" android:label="Now / الآن (سفید)" android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
                 <action android:name="android.intent.action.DATE_CHANGED"/>
@@ -47,7 +47,7 @@ receivers = '''
             </intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/now_widget_info"/>
         </receiver>
-        <receiver android:name=".NowWidgetTransparentProvider" android:label="الآن (شفاف)" android:exported="true">
+        <receiver android:name=".NowWidgetTransparentProvider" android:label="Now / الآن (شفاف)" android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
             </intent-filter>

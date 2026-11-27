@@ -21,7 +21,8 @@ class Reminder {
     this.repeatN = 1,
     this.updatedAt = 0,
     this.deleted = false,
-  });
+    List<Map<String, dynamic>>? log,
+  }) : log = log ?? [];
   final String id;
   String title;
   DateTime time;
@@ -34,10 +35,13 @@ class Reminder {
   int updatedAt;
   bool deleted;
 
+  /// گردش کار: {t: زمان (ms)، k: نوع، x: متن گزارش}
+  final List<Map<String, dynamic>> log;
+
   Map<String, dynamic> toJson() => {
         'id': id, 'title': title, 't': time.millisecondsSinceEpoch, 'done': done,
         'note': note, 'cat': catId, 'img': image, 'rt': repeatType, 'rn': repeatN,
-        'u': updatedAt, 'del': deleted,
+        'u': updatedAt, 'del': deleted, 'log': log,
       };
   factory Reminder.fromJson(Map<String, dynamic> m) => Reminder(
         id: m['id'] as String,
@@ -51,6 +55,7 @@ class Reminder {
         repeatN: (m['rn'] as int?) ?? 1,
         updatedAt: (m['u'] as int?) ?? 0,
         deleted: (m['del'] as bool?) ?? false,
+        log: ((m['log'] as List?) ?? []).map((e) => Map<String, dynamic>.from(e as Map)).toList(),
       );
 }
 

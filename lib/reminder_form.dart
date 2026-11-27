@@ -229,6 +229,7 @@ class _ReminderFormState extends State<_ReminderForm> {
                 ]),
               ),
             ]),
+          if (edit != null) _LogSection(edit.id),
           const SizedBox(height: 18),
           Row(children: [
             if (edit != null)
@@ -338,4 +339,106 @@ class _RepeatDialogState extends State<_RepeatDialog> {
       ),
     );
   }
+}
+
+
+/// گزارش و گردش کار یک یادآوری (با تاریخ و ساعت)
+class _LogSection extends StatefulWidget {
+  const _LogSection(this.id);
+  final String id;
+  @override
+  State<_LogSection> createState() => _LogSectionState();
+}
+
+class _LogSectionState extends State<_LogSection> {
+  final TextEditingController _c = TextEditingController();
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  String _kind(String k) => switch (k) {
+        'created' => tr('log_created'),
+        'fired' => tr('log_fired'),
+        'followup' => tr('log_followup'),
+        'snooze' => tr('log_snooze'),
+        'done' => tr('log_done'),
+        'report' => tr('log_report'),
+        _ => k,
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: app,
+      builder: (context, _) {
+        final r = app.byId(widget.id);
+        final log = r == null ? <Map<String, dynamic>>[] : r.log.reversed.toList();
+        return Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: CollapsibleSection(
+            title: tr('log_title'),
+            count: log.length,
+            initiallyExpanded: false,
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Expanded(
+                  child: TextField(
+                    controller: _c,
+                    minLines: 1,
+                    maxLines: 3,
+                    decoration: _dec(context, tr('report_hint')),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                FilledButton(
+                  style: FilledButton.styleFrom(backgroundColor: context.accent, foregroundColor: context.onAccent, minimumSize: const Size(0, 48)),
+                  onPressed: () {
+                    final t = _c.text.trim();
+                    if (t.isEmpty) return;
+                    app.addLog(widget.id, 'report', t);
+                    _c.clear();
+                  },
+                  child: Text(tr('save_report')),
+                ),
+              ]),
+              const SizedBox(height: 8),
+              if (log.isEmpty)
+                Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Text(tr('no_log'), style: TextStyle(color: context.sub)))
+              else
+                for (final e in log)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 5),
+                    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Container(
+                        margin: const EdgeInsets.only(top: 6),
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(color: e['k'] == 'report' ? context.accent : context.sub, shape: BoxShape.circle),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text(_kind(e['k'] as String), style: const TextStyle(fontWeight: FontWeight.w600)),
+                          if (((e['x'] as String?) ?? '').isNotEmpty) Text(e['x'] as String),
+                          Ltr(child: Text(fmtStamp(DateTime.fromMillisecondsSinceEpoch(e['t'] as int)), style: TextStyle(fontSize: 12, color: context.sub))),
+                        ]),
+                      ),
+                    ]),
+                  ),
+            ]),
+          ),
+        );
+      },
+    );
+  }
+
+  InputDecoration _dec(BuildContext context, String hint) => InputDecoration(
+        hintText: hint,
+        filled: true,
+        fillColor: context.bg,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+      );
 }
